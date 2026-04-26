@@ -11,7 +11,7 @@
 ### 文件读取（Read 工具）
 - `{ROOT}/skills/styles/` 下所有文件：`state.js`, `content.js`, `input.txt`, `settings.json`, `.pending`, `.card_path`, `openings.json`, `index.html`
 - `{ROOT}/skills/styles/profiles/` 下所有 `.md` 文件 — 文风配置读写
-- 当前卡片文件夹（如 `D:\ds4\绿毛\`）下的 `chat_log.json`
+- 当前卡片文件夹（如 `{ROOT}/我的角色/`）下的 `chat_log.json`
 - `{ROOT}/skills/handler.py`, `{ROOT}/skills/server.py`, `{ROOT}/skills/poll.py`
 - `{ROOT}/CLAUDE.md`
 
@@ -21,7 +21,7 @@
 - `{ROOT}/skills/styles/.card_path` — 写入卡片文件夹路径
 - `{ROOT}/skills/styles/content.js` — handler.py 自动重建（Bash 中执行）
 - `{ROOT}/skills/styles/openings.json` — 开场白数据
-- 卡片文件夹（如 `D:\ds4\绿毛\`）下的 `chat_log.json` — handler.py 自动管理
+- 卡片文件夹（如 `{ROOT}/我的角色/`）下的 `chat_log.json` — handler.py 自动管理
 
 ### Bash 命令
 - `powershell -Command "Get-Process python | Where-Object { $_.CommandLine -like '*skills*' } | Stop-Process -Force"` — 清理残留进程

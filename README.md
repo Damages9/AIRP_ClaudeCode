@@ -107,30 +107,61 @@ NSFW 档位（舒缓/直白/关闭） · 人称切换 · 字数控制（100–30
 | **Claude Code** | AI 编排引擎，读取 `CLAUDE.md` 执行规则 |
 | **现代浏览器** | 访问 `http://localhost:8765` |
 
+### 运行模式：一卡一文件夹
+
+本项目的运行方式是：**在项目根目录下为每张角色卡（或每部小说）单独建立一个文件夹**，放入素材后，在该文件夹内启动 Claude Code。
+
+```
+{ROOT}/
+├── skills/                     # 引擎代码（所有卡片共享）
+├── CLAUDE.md                   # 引擎规则（所有卡片共享）
+├── 我的角色/                   # 示例：卡片 A 的文件夹
+│   ├── 角色卡.png              #   角色卡 PNG（含嵌入 JSON）
+│   ├── 世界书.json             #   世界书（可选）
+│   └── chat_log.json           #   聊天记录（自动生成）
+├── 某小说/                     # 示例：小说 B 的文件夹
+│   ├── 某小说.txt              #   小说全文
+│   └── chat_log.json           #   聊天记录（自动生成）
+└── 另一张卡/                   # 示例：卡片 C 的文件夹
+    ├── 角色.png                #   角色卡 PNG
+    └── chat_log.json           #   聊天记录（自动生成）
+```
+
+Claude Code 启动时会自动扫描**当前文件夹**下的素材：
+- `.png` → 解析 SillyTavern 角色卡（tEXt/chara chunk）
+- `.json` → 读取世界书
+- `.txt` → 视为小说文本，提取世界观和角色
+
 ### 三步启动
 
 ```bash
-# 1. 进入角色卡文件夹
-cd D:\ds4\<你的卡片目录>\      # 包含 .png 角色卡文件
+# 1. 在项目根目录下新建一个文件夹，放入角色卡/小说
+mkdir 我的角色
+# 将角色卡.png、世界书.json、小说.txt 等素材放入该文件夹
 
-# 2. 启动 Claude Code（自动执行 CLAUDE.md 中的启动流程）
-claude
+# 2. 进入该文件夹，启动 Claude Code
+cd 我的角色
+claude                             # 自动执行 CLAUDE.md 启动流程
 
 # 3. 打开浏览器
-# 访问 http://localhost:8765 → 在输入框打字 → 点提交
+# 访问 http://localhost:8765 → 输入框打字 → 点提交
 ```
 
-> Claude Code 启动后会自动：清理残留进程 → 启动桥接服务器 → 扫描角色卡 → 生成开局叙事。你只需要打开浏览器即可。
+> Claude Code 启动后会自动完成：清理残留进程 → 启动桥接服务器 → 扫描当前文件夹素材 → 初始化状态 → 生成开场叙事。你只需要打开浏览器。
+
+### 切换卡片
+
+关闭当前 Claude Code 会话，`cd` 到另一个卡片文件夹，重新启动即可。引擎代码（`skills/`）是所有卡片共享的，无需复制。
 
 ### 关闭
 
 直接退出 Claude Code。下次启动时自动清理残留 Python 进程。
 
 <details>
-<summary>🔧 手动启动桥接服务器（可选）</summary>
+<summary>🔧 手动启动桥接服务器（可选，通常不需要）</summary>
 
 ```bash
-python D:\ds4\skills\server.py &
+python {ROOT}/skills/server.py &
 ```
 
 服务器默认监听 `127.0.0.1:8765`。
@@ -142,7 +173,7 @@ python D:\ds4\skills\server.py &
 ## 📂 目录结构
 
 ```
-D:\ds4\
+{ROOT}/
 ├── CLAUDE.md                     # 🧠 系统编排核心（规则/权限/流程）
 ├── README.md                     # 📄 本文件
 ├── extract-png-card.md           # 📘 PNG chunk 角色卡解析参考
