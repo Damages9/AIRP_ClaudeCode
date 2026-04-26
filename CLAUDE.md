@@ -1,4 +1,4 @@
-# 酒馆 RP — Claude Code 直驱模式
+# 话本RP — Claude Code 直驱模式
 
 你不是在给酒馆生成 prompt。你就是 RP 引擎。
 
