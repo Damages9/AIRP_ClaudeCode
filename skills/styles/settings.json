@@ -4,6 +4,17 @@
   "person": "第二人称",
   "antiImpersonation": true,
   "bgNpc": false,
-  "charName": "",
-  "wordCount": 4000
+  "charName": "Sam",
+  "wordCount": 2000,
+  "imageGenEnabled": true,
+  "imageGenAuto": true,
+  "imageGenBackend": "comfyui",
+  "naiApiKey": "",
+  "naiModel": "nai-diffusion-4-5-curated",
+  "naiWidth": 832,
+  "naiHeight": 1216,
+  "naiSteps": 28,
+  "naiScale": 3,
+  "comfyUrl": "http://127.0.0.1:8188",
+  "comfyWorkflow": ""
 }

@@ -16,11 +16,23 @@
   --input-bg: #fdfaf4;
   --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
+[data-theme="dark"] {
+  --bg: #1b1b26;
+  --surface: #24242f;
+  --border: #3a3a50;
+  --accent: #d4946a;
+  --accent2: #7aaa7a;
+  --text: #d4c5b9;
+  --muted: #9a9aac;
+  --input-bg: #1e1e2a;
+}
 * { margin:0; padding:0; box-sizing:border-box; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #c4b9a0; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #a89880; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #4a4a60; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #5a5a75; }
 html, body {
   height: 100vh; overflow: hidden;
   background: var(--bg); color: var(--text);
@@ -63,6 +75,9 @@ body {
   display: flex; justify-content: center; align-items: flex-start;
   scroll-behavior: smooth;
   background: linear-gradient(180deg, #faf7f0 0%, #f5f0e8 100%);
+}
+[data-theme="dark"] #content-panel {
+  background: linear-gradient(180deg, #1e1e2a 0%, #1b1b26 100%);
 }
 #content-panel #doc { width: 100%; max-width: 860px; }
 #content-panel #doc > * {
@@ -127,7 +142,7 @@ body {
 .chip-action {
   display: inline-block; padding: 4px 10px; border-radius: 12px;
   font-size: 0.78em; margin: 3px 4px; cursor: pointer;
-  background: #fdfaf4; color: var(--text);
+  background: var(--input-bg); color: var(--text);
   border: 1px solid var(--border);
   transition: background 0.15s, border-color 0.15s;
 }
@@ -221,6 +236,75 @@ body {
   pointer-events: none; z-index: 100;
 }
 #toast.show { opacity: 1; }
+
+/* ═══ IMAGE GEN BUTTONS ═══ */
+.img-gen-btn {
+  display: inline-block; margin: 6px 0; padding: 5px 14px;
+  border-radius: 14px; font-size: 0.78em; cursor: pointer;
+  border: 1px dashed var(--border); color: var(--muted);
+  background: var(--bg); transition: all 0.2s;
+  user-select: none;
+}
+.img-gen-btn:hover { border-color: var(--accent); color: var(--accent); }
+.img-gen-btn.auto {
+  border-style: solid; border-color: #b06a3d; color: #b06a3d;
+  animation: pulse-border 2.5s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  0%, 100% { border-color: #b06a3d; box-shadow: 0 0 0 0 rgba(176,106,61,0.2); }
+  50% { border-color: #d4845a; box-shadow: 0 0 6px 2px rgba(176,106,61,0.15); }
+}
+.img-gen-btn.loading {
+  border-color: var(--accent2); color: var(--accent2);
+  animation: none; pointer-events: none; opacity: 0.8;
+}
+.img-gen-btn.loading::after { content: " ⏳"; animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* ═══ GENERATED IMAGE ═══ */
+.gen-img {
+  display: block; max-width: 100%; height: auto;
+  border-radius: 8px; margin: 8px 0; cursor: zoom-in;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  transition: transform 0.15s;
+}
+.gen-img:hover { transform: scale(1.01); }
+
+/* ═══ LIGHTBOX ═══ */
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.88); cursor: zoom-out;
+  justify-content: center; align-items: center;
+}
+#lightbox.show { display: flex; }
+#lightbox img {
+  max-width: 92vw; max-height: 92vh;
+  border-radius: 6px; box-shadow: 0 4px 40px rgba(0,0,0,0.5);
+}
+#lightbox .lb-close {
+  position: absolute; top: 16px; right: 24px;
+  color: #fff; font-size: 28px; cursor: pointer;
+  opacity: 0.6; transition: opacity 0.2s;
+}
+#lightbox .lb-close:hover { opacity: 1; }
+
+/* ═══ DARK MODE OVERRIDES ═══ */
+[data-theme="dark"] .turn-user .turn-text {
+  background: #1e1e2a;
+  border-left-color: #d4946a;
+}
+[data-theme="dark"] #topbar .tag { color: #1b1b26; }
+[data-theme="dark"] .btn-submit { color: #1b1b26; }
+[data-theme="dark"] .chip-hot { color: #1b1b26; }
+[data-theme="dark"] .toggle-slider:before { background: #d4c5b9; }
+[data-theme="dark"] input[type="range"] { accent-color: var(--accent); }
+[data-theme="dark"] #settings-saved { color: #7aaa7a; }
+[data-theme="dark"] #theme-toggle:hover { background: var(--surface); }
+[data-theme="dark"] .btn-reroll:hover { color: #1b1b26; }
+[data-theme="dark"] .img-gen-btn:hover { background: var(--surface); }
+[data-theme="dark"] .btn-turn-del:hover,
+[data-theme="dark"] .btn-turn-del.confirming { color: #fff; }
+[data-theme="dark"] #toast { color: #1b1b26; }
 </style>
 </head>
 <body>
@@ -240,6 +324,10 @@ body {
   <span class="dim" style="font-size:0.75em;" id="conn-label">桥接:</span>
   <span id="conn-dot" class="dot red" title="服务器未连接"></span>
   <span class="dim" id="tb-count">已生成: 0</span>
+  <span class="sep">|</span>
+  <span class="dim" id="tb-wordcount" title="最新回复字数 / 目标字数">字数: —</span>
+  <span class="sep">|</span>
+  <button id="theme-toggle" title="切换夜间模式" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:0.9em;padding:1px 6px;line-height:1;color:var(--muted);">🌙</button>
 </div>
 
 <div id="main">
@@ -273,7 +361,7 @@ body {
       </div>
       <div class="setting-row">
         <span class="label">字数控制</span>
-        <input type="number" id="set-wordcount" onchange="saveSettings()" min="100" max="3000" step="100" style="width:80px;text-align:center;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.78em;font-family:var(--font-ui);outline:none;">
+        <input type="number" id="set-wordcount" onchange="saveSettings()" min="100" max="6000" step="100" style="width:80px;text-align:center;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.78em;font-family:var(--font-ui);outline:none;">
       </div>
       <div class="setting-row">
         <span class="label">防抢话</span>
@@ -308,6 +396,72 @@ body {
       </select>
     </div>
     <div class="side-card">
+      <h4>🖼️ 文生图</h4>
+      <div class="setting-row">
+        <span class="label">启用</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="set-imgen-enabled" onchange="saveSettings()" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span class="label">自动检测</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="set-imgen-auto" onchange="saveSettings()" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span class="label">后端</span>
+        <select id="set-imgen-backend" onchange="saveSettings(); toggleImgBackend()">
+          <option value="novelai">NovelAI</option>
+          <option value="comfyui">ComfyUI</option>
+        </select>
+      </div>
+      <div id="imgen-nai-settings">
+        <div class="setting-row">
+          <span class="label">API Key</span>
+          <input type="password" id="set-nai-key" onchange="saveSettings()" style="width:110px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.75em;font-family:var(--font-ui);outline:none;">
+        </div>
+        <div class="setting-row">
+          <span class="label">模型</span>
+          <select id="set-nai-model" onchange="saveSettings()">
+            <option value="nai-diffusion-4-5-curated">V4.5 Curated</option>
+            <option value="nai-diffusion-4-5-full">V4.5 Full</option>
+            <option value="nai-diffusion-4-curated-preview">V4 Curated</option>
+            <option value="nai-diffusion-4-full">V4 Full</option>
+            <option value="nai-diffusion-3">V3</option>
+            <option value="nai-diffusion-furry-3">Furry V3</option>
+          </select>
+        </div>
+      </div>
+      <div id="imgen-comfy-settings" style="display:none;">
+        <div class="setting-row">
+          <span class="label">地址</span>
+          <input type="text" id="set-comfy-url" onchange="saveSettings()" value="http://127.0.0.1:8188" style="width:130px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.75em;font-family:var(--font-ui);outline:none;">
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="label">分辨率</span>
+        <select id="set-nai-size" onchange="saveSettings()">
+          <option value="832x1216">竖版 832x1216</option>
+          <option value="1216x832">横版 1216x832</option>
+          <option value="1024x1024">方形 1024x1024</option>
+          <option value="1664x2432">大图 1664x2432</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span class="label">步数</span>
+        <input type="range" id="set-nai-steps" oninput="saveSettings()" min="15" max="50" value="28" style="width:100px;">
+        <span id="steps-val" style="font-size:0.75em;color:var(--muted);">28</span>
+      </div>
+      <div class="setting-row">
+        <span class="label">Scale</span>
+        <input type="range" id="set-nai-scale" oninput="saveSettings()" min="1" max="15" value="3" step="0.5" style="width:100px;">
+        <span id="scale-val" style="font-size:0.75em;color:var(--muted);">3</span>
+      </div>
+    </div>
+    <div class="side-card">
       <h4>📋 剧情摘要</h4>
       <div class="summary-text" id="sb-summary">暂无</div>
     </div>
@@ -324,13 +478,18 @@ body {
   </div>
   <div class="meta-row">
     <span>你的角色名:</span>
-    <input id="char-name" placeholder="可选" value="">
+    <input id="char-name" placeholder="可选" value="" oninput="render()">
     <span style="flex:1;"></span>
     <span id="last-action" style="font-style:italic;"></span>
   </div>
 </div>
 
 <div id="toast">✓ 已复制到剪贴板，请粘贴到 Claude Code</div>
+
+<div id="lightbox" onclick="closeLightbox()">
+  <span class="lb-close" onclick="closeLightbox()">✕</span>
+  <img id="lightbox-img" src="" alt="">
+</div>
 
 <script>
 // ═══ Dynamic script reloader (no page flash) ═══
@@ -368,6 +527,45 @@ function reloadData() {
     document.head.appendChild(c);
   };
   document.head.appendChild(s);
+}
+
+function countChineseChars(html) {
+  // Strip HTML tags, entities, whitespace, and punctuation
+  const text = html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&[^;]+;/g, '')
+    .replace(/[\s\n\r]/g, '');
+  // Count CJK characters (Chinese, Japanese kanji) + letters/numbers as words
+  const cjk = text.match(/[一-鿿㐀-䶿]/g);
+  const alpha = text.match(/[a-zA-Z0-9]+/g);
+  return (cjk ? cjk.length : 0) + (alpha ? alpha.length : 0);
+}
+
+function updateWordCount() {
+  const el = document.getElementById('tb-wordcount');
+  if (!el) return;
+  const target = parseInt(document.getElementById('set-wordcount').value) || 600;
+  const threshold = Math.floor(target * 0.8);
+
+  // Get last AI turn text
+  const turns = document.querySelectorAll('.turn-ai .turn-text');
+  if (turns.length === 0) { el.textContent = '字数: —'; el.style.color = ''; return; }
+  const lastTurn = turns[turns.length - 1];
+  const count = countChineseChars(lastTurn.innerHTML);
+
+  let color;
+  if (count >= target) {
+    color = '#5a7a5a'; // green - met or exceeded
+  } else if (count >= threshold) {
+    color = '#cc9a56'; // amber - within 80%
+  } else {
+    color = '#b0624a'; // red - below 80%
+  }
+  el.textContent = '字数: ' + count + '/' + target;
+  el.style.color = color;
+  el.title = count >= target ? '已达到目标字数' :
+    count >= threshold ? '接近目标字数 (≥80%)' :
+    '⚠ 未达目标字数的80%，建议重roll';
 }
 
 function userName() {
@@ -440,7 +638,7 @@ function render() {
     const mpPct = (S.mp / (S.mpMax || 1) * 100).toFixed(0);
     const expPct = S.expMax ? (S.exp / S.expMax * 100).toFixed(0) : 0;
     setHtml('sb-stats',
-      `<div class="kv"><span>${S.player || '角色'}${S.ed ? ' (已ED)' : ''}</span></div>` +
+      `<div class="kv"><span>${replaceUser(S.player) || '角色'}${S.ed ? ' (已ED)' : ''}</span></div>` +
       `<div class="kv"><span class="k">HP</span><span>${S.hp}/${S.hpMax}</span></div>` +
       `<div class="stat-bar-wrap"><div class="stat-bar stat-hp" style="width:${hpPct}%"></div></div>` +
       `<div class="kv"><span class="k">MP</span><span>${S.mp}/${S.mpMax}</span></div>` +
@@ -465,6 +663,12 @@ function render() {
 
   // Inject per-turn delete buttons
   injectTurnButtons();
+
+  // Apply persisted generated images
+  applyTurnImages();
+
+  // Word count check
+  updateWordCount();
 
   // Openings switcher visibility
   updateOpeningsCard(S);
@@ -740,10 +944,25 @@ async function loadSettings() {
     document.getElementById('set-bgnpc').checked = s.bgNpc === true;
     document.getElementById('set-wordcount').value = s.wordCount || 600;
     if (s.charName) document.getElementById('char-name').value = s.charName;
+    // Image-gen settings
+    document.getElementById('set-imgen-enabled').checked = s.imageGenEnabled !== false;
+    document.getElementById('set-imgen-auto').checked = s.imageGenAuto !== false;
+    document.getElementById('set-imgen-backend').value = s.imageGenBackend || 'novelai';
+    document.getElementById('set-nai-key').value = s.naiApiKey || '';
+    document.getElementById('set-nai-model').value = s.naiModel || 'nai-diffusion-4-5-curated';
+    var w = s.naiWidth || 832, h = s.naiHeight || 1216;
+    document.getElementById('set-nai-size').value = w + 'x' + h;
+    document.getElementById('set-nai-steps').value = s.naiSteps || 28;
+    document.getElementById('set-nai-scale').value = s.naiScale || 3;
+    document.getElementById('set-comfy-url').value = s.comfyUrl || 'http://127.0.0.1:8188';
+    document.getElementById('steps-val').textContent = document.getElementById('set-nai-steps').value;
+    document.getElementById('scale-val').textContent = document.getElementById('set-nai-scale').value;
+    toggleImgBackend();
   } catch(e) { /* server may not be ready yet */ }
 }
 
 async function saveSettings() {
+  var sz = (document.getElementById('set-nai-size').value || '832x1216').split('x');
   const data = {
     style: document.getElementById('set-style').value,
     nsfw: document.getElementById('set-nsfw').value,
@@ -751,8 +970,20 @@ async function saveSettings() {
     antiImpersonation: document.getElementById('set-antiimp').checked,
     bgNpc: document.getElementById('set-bgnpc').checked,
     wordCount: parseInt(document.getElementById('set-wordcount').value) || 600,
-    charName: document.getElementById('char-name').value.trim()
+    charName: document.getElementById('char-name').value.trim(),
+    imageGenEnabled: document.getElementById('set-imgen-enabled').checked,
+    imageGenAuto: document.getElementById('set-imgen-auto').checked,
+    imageGenBackend: document.getElementById('set-imgen-backend').value,
+    naiApiKey: document.getElementById('set-nai-key').value,
+    naiModel: document.getElementById('set-nai-model').value,
+    naiWidth: parseInt(sz[0]) || 832,
+    naiHeight: parseInt(sz[1]) || 1216,
+    naiSteps: parseInt(document.getElementById('set-nai-steps').value) || 28,
+    naiScale: parseFloat(document.getElementById('set-nai-scale').value) || 3,
+    comfyUrl: document.getElementById('set-comfy-url').value
   };
+  document.getElementById('steps-val').textContent = data.naiSteps;
+  document.getElementById('scale-val').textContent = data.naiScale;
   try {
     await fetch(BRIDGE + '/api/settings', {
       method: 'POST',
@@ -777,6 +1008,119 @@ document.getElementById('char-name').addEventListener('input', function() {
   this._timer = setTimeout(onCharNameChange, 600);
 });
 
+// ═══ Image Gen ═══
+
+async function doImageGen(btn) {
+  if (btn.classList.contains('loading')) return;
+  var turn = parseInt(btn.getAttribute('data-turn'));
+  var seg = parseInt(btn.getAttribute('data-seg'));
+  if (isNaN(turn) || isNaN(seg)) return;
+
+  btn.classList.add('loading');
+  btn.textContent = '生成中';
+
+  try {
+    var r = await fetch(BRIDGE + '/api/image-gen/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ turn: turn, seg: seg })
+    });
+    var data = await r.json();
+    if (data.ok) {
+      var img = document.createElement('img');
+      img.src = data.url;
+      img.className = 'gen-img';
+      img.setAttribute('data-turn', turn);
+      img.setAttribute('data-seg', seg);
+      img.alt = 'AI生成插图';
+      img.addEventListener('click', function(e) { e.stopPropagation(); openLightbox(this.src); });
+      btn.parentNode.replaceChild(img, btn);
+      showToast('✓ 插图已生成');
+    } else {
+      btn.classList.remove('loading');
+      btn.textContent = '🔄 重试';
+      btn.title = data.error || '生成失败';
+      showError(data.error || '生成失败 — 请检查 API Key 和服务');
+      setTimeout(function() { if (btn.textContent === '🔄 重试') { btn.textContent = '🎨 生成插图'; } }, 5000);
+    }
+  } catch(e) {
+    btn.classList.remove('loading');
+    btn.textContent = '🔄 重试';
+    showError('无法连接服务器');
+    setTimeout(function() { if (btn.textContent === '🔄 重试') { btn.textContent = '🎨 生成插图'; } }, 5000);
+  }
+}
+
+// ═══ Lightbox ═══
+
+function openLightbox(src) {
+  var lb = document.getElementById('lightbox');
+  var img = document.getElementById('lightbox-img');
+  img.src = src;
+  lb.classList.add('show');
+  document.addEventListener('keydown', onLightboxKey);
+}
+
+function closeLightbox() {
+  var lb = document.getElementById('lightbox');
+  lb.classList.remove('show');
+  document.getElementById('lightbox-img').src = '';
+  document.removeEventListener('keydown', onLightboxKey);
+}
+
+function onLightboxKey(e) {
+  if (e.key === 'Escape') closeLightbox();
+}
+
+// ═══ Image Gen Settings ═══
+
+function toggleImgBackend() {
+  var backend = document.getElementById('set-imgen-backend').value;
+  document.getElementById('imgen-nai-settings').style.display = (backend === 'novelai') ? '' : 'none';
+  document.getElementById('imgen-comfy-settings').style.display = (backend === 'comfyui') ? '' : 'none';
+}
+
+document.getElementById('set-nai-steps').addEventListener('input', function() {
+  document.getElementById('steps-val').textContent = this.value;
+});
+document.getElementById('set-nai-scale').addEventListener('input', function() {
+  document.getElementById('scale-val').textContent = this.value;
+});
+
+// Delegate click for dynamically created img-gen buttons
+document.getElementById('doc').addEventListener('click', function(e) {
+  var btn = e.target.closest('.img-gen-btn');
+  if (btn) { e.preventDefault(); doImageGen(btn); }
+  var img = e.target.closest('.gen-img');
+  if (img) { openLightbox(img.src); }
+});
+
+// ═══ TURN_IMAGES persistence ═══
+// Called during render() to swap buttons for already-generated images
+function applyTurnImages() {
+  if (!window.TURN_IMAGES) return;
+  var images = window.TURN_IMAGES;
+  var doc = document.getElementById('doc');
+  Object.keys(images).forEach(function(key) {
+    var parts = key.split('_');
+    var turn = parts[0];
+    var seg = parts[1];
+    var url = images[key];
+    // Find the button with matching data-turn/data-seg
+    var btn = doc.querySelector('.img-gen-btn[data-turn="' + turn + '"][data-seg="' + seg + '"]');
+    if (btn) {
+      var img = document.createElement('img');
+      img.src = url;
+      img.className = 'gen-img';
+      img.setAttribute('data-turn', turn);
+      img.setAttribute('data-seg', seg);
+      img.alt = 'AI生成插图';
+      img.addEventListener('click', function(e) { e.stopPropagation(); openLightbox(this.src); });
+      btn.parentNode.replaceChild(img, btn);
+    }
+  });
+}
+
 // No page flash: use dynamic script reloading instead of meta refresh
 reloadData();
 checkBridge();
@@ -785,6 +1129,29 @@ loadOpenings();
 pollTimer = setInterval(reloadData, 3000);
 setInterval(checkBridge, 5000);
 setInterval(loadStyleProfiles, 15000);
+
+// ═══ Dark Mode Toggle ═══
+(function() {
+  var saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('theme-toggle').textContent = '☀️';
+  }
+  document.getElementById('theme-toggle').addEventListener('click', function() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      document.documentElement.removeAttribute('data-theme');
+      this.textContent = '🌙';
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      this.textContent = '☀️';
+      localStorage.setItem('theme', 'dark');
+    }
+    // Re-check word count colors for current theme
+    if (typeof updateWordCount === 'function') updateWordCount();
+  });
+})();
 </script>
 </body>
 </html>

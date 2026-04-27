@@ -21,3 +21,11 @@ skills/styles/.pending
 # Lock files
 *.lock
 scheduled_tasks.lock
+
+# User card folders (not part of engine)
+test/
+绿毛/
+
+# External skill packs
+nai-skills/
+skills/image_gen/
