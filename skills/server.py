@@ -22,7 +22,6 @@ CARD_PATH_FILE = ROOT / ".card_path"
 # Allow importing handler from skills/
 sys.path.insert(0, str(SKILLS))
 import handler
-from image_gen import image_handler
 
 DEFAULT_SETTINGS = {
     "style": "北棱特调",
@@ -32,17 +31,6 @@ DEFAULT_SETTINGS = {
     "bgNpc": False,
     "charName": "",
     "wordCount": 600,
-    "imageGenEnabled": True,
-    "imageGenAuto": True,
-    "imageGenBackend": "novelai",
-    "naiApiKey": "",
-    "naiModel": "nai-diffusion-4-5-curated",
-    "naiWidth": 832,
-    "naiHeight": 1216,
-    "naiSteps": 28,
-    "naiScale": 3,
-    "comfyUrl": "http://127.0.0.1:8188",
-    "comfyWorkflow": "",
 }
 
 os.chdir(str(ROOT))
@@ -151,25 +139,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except (json.JSONDecodeError, ValueError) as e:
                 self._json({"ok": False, "error": str(e)}, 400)
 
-        elif parsed.path == "/api/image-gen/generate":
-            card = _card_folder()
-            if not card:
-                self._json({"ok": False, "error": "no card path configured"}, 400)
-                return
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length).decode("utf-8")
-            try:
-                data = json.loads(body)
-                turn = int(data.get("turn", 0))
-                seg = int(data.get("seg", 0))
-                result = image_handler.generate(turn, seg, card)
-                if "error" in result:
-                    self._json({"ok": False, "error": result["error"]}, 500)
-                else:
-                    self._json({"ok": True, "url": result["url"]})
-            except (json.JSONDecodeError, ValueError) as e:
-                self._json({"ok": False, "error": str(e)}, 400)
-
         elif parsed.path == "/api/style-profiles/delete":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length).decode("utf-8")
@@ -245,29 +214,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 except Exception:
                     pass
             self._json(settings)
-            return
-
-        # GET: serve generated images from card_folder/images/
-        if parsed.path.startswith("/images/"):
-            card = _card_folder()
-            if not card:
-                self._json({"ok": False, "error": "no card path configured"}, 400)
-                return
-            filename = parsed.path[len("/images/"):]
-            img_path = image_handler.serve_image_by_filename(card, filename)
-            if img_path:
-                ext = os.path.splitext(filename)[1].lower()
-                ct = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-                      "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
-                self.send_response(200)
-                self.send_header("Content-Type", ct)
-                self.send_header("Cache-Control", "public, max-age=3600")
-                self.send_header("Content-Length", str(os.path.getsize(img_path)))
-                self.end_headers()
-                with open(img_path, "rb") as f:
-                    self.wfile.write(f.read())
-            else:
-                self._json({"ok": False, "error": "image not found"}, 404)
             return
 
         # Default: serve static files

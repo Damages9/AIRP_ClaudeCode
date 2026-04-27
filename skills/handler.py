@@ -14,27 +14,36 @@ from pathlib import Path
 
 STYLES = Path(__file__).parent / "styles"
 BRIDGE = "http://localhost:8765"
-IMG_RE = re.compile(r'\[img:\s*(.+?)\]')
 
 
 # ═══ Tag Parsing ═══
 
 def parse_response(text):
-    """Parse response.txt into structured parts. Returns dict with optional image_prompts."""
+    """Parse response.txt into structured parts."""
     result = {}
-    for tag in ("polished_input", "content", "summary", "options"):
+    for tag in ("polished_input", "content", "summary", "options", "tokens"):
         m = re.search(rf"<{tag}>(.*?)</{tag}>", text, re.DOTALL)
         if m:
-            result[tag] = m.group(1).strip()
-
-    # Extract [img: ...] from content
-    content_text = result.get("content", text)
-    image_prompts = []
-    for m in IMG_RE.finditer(content_text):
-        image_prompts.append({"tags": m.group(1).strip(), "img_url": None})
-    result["image_prompts"] = image_prompts
-
+            raw = m.group(1).strip()
+            if tag == "tokens":
+                result[tag] = _parse_tokens(raw)
+            else:
+                result[tag] = raw
     return result
+
+
+def _parse_tokens(raw):
+    """Parse <tokens> block: 'in: N\\nout: N\\ntotal: N' → dict."""
+    tokens = {}
+    for line in raw.split("\n"):
+        line = line.strip()
+        if ":" in line:
+            k, v = line.split(":", 1)
+            try:
+                tokens[k.strip()] = int(v.strip())
+            except ValueError:
+                pass
+    return tokens
 
 
 # ═══ File I/O ═══
@@ -66,47 +75,26 @@ def write_state(js):
 
 
 def write_content_js(card_folder):
-    """Rebuild content.js from chat_log.json. Strips [img:...] from display,
-    injects generation buttons, and exposes TURN_IMAGES for persisted images."""
+    """Rebuild content.js from chat_log.json. Exposes TURN_TOKENS for per-turn token display."""
     log = read_chat_log(card_folder)
 
     html_parts = []
-    turn_images = {}  # { "turn_seg": "url" }
+    turn_tokens = {}  # { "N": {"in": X, "out": Y, "total": Z}, ... }
 
     for turn in log:
         ai_raw = turn.get("ai", "")
         user_raw = turn.get("user", "")
         turn_idx = turn.get("index", 0)
-        image_prompts = turn.get("image_prompts", [])
 
-        # First strip <options>/<summary> tags
+        # Strip <options>/<summary>/<tokens> from display
         ai_display = _strip_tags(ai_raw, "options")
         ai_display = _strip_tags(ai_display, "summary")
+        ai_display = _strip_tags(ai_display, "tokens")
 
-        # Replace [img: ...] with generation buttons / images
-        seg_counter = [0]  # mutable counter for closure
-
-        def replace_img_tag(m):
-            idx = seg_counter[0]
-            seg_counter[0] += 1
-            tags = m.group(1).strip()
-            key = f"{turn_idx}_{idx}"
-
-            # Check if image already generated
-            img_url = None
-            if idx < len(image_prompts):
-                img_url = image_prompts[idx].get("img_url", None)
-
-            if img_url:
-                turn_images[key] = img_url
-                return f'<img src="{img_url}" class="gen-img" data-turn="{turn_idx}" data-seg="{idx}" alt="{_escape_attr(tags[:60])}" title="{_escape_attr(tags)}" loading="lazy">'
-            else:
-                return (
-                    f'<span class="img-gen-btn auto" data-turn="{turn_idx}" data-seg="{idx}" '
-                    f'title="{_escape_attr(tags)}">🎨 生成插图</span>'
-                )
-
-        ai_display = IMG_RE.sub(replace_img_tag, ai_display)
+        # Collect token data for exposure
+        tokens = turn.get("tokens")
+        if tokens:
+            turn_tokens[str(turn_idx)] = tokens
 
         wrap = '<div class="turn-wrap">'
         if user_raw:
@@ -132,7 +120,7 @@ def write_content_js(card_folder):
         "window.CONTENT_HTML = " + json.dumps(content_html, ensure_ascii=False) + ";\n"
         "window.SUMMARY_TEXT = " + json.dumps(latest_summary, ensure_ascii=False) + ";\n"
         "window.TURN_OPTIONS = " + json.dumps(options, ensure_ascii=False) + ";\n"
-        "window.TURN_IMAGES = " + json.dumps(turn_images, ensure_ascii=False) + ";\n"
+        "window.TURN_TOKENS = " + json.dumps(turn_tokens, ensure_ascii=False) + ";\n"
     )
 
     path = STYLES / "content.js"
@@ -163,7 +151,7 @@ def _strip_tags(text, tag):
 
 # ═══ Turn Operations ═══
 
-def append_turn(card_folder, polished_input=None, content="", summary="", options="", is_opening=False, image_prompts=None):
+def append_turn(card_folder, polished_input=None, content="", summary="", options="", is_opening=False, tokens=None):
     """Append a new turn to chat_log and rebuild content.js."""
     log = read_chat_log(card_folder)
     next_index = len(log)
@@ -177,17 +165,23 @@ def append_turn(card_folder, polished_input=None, content="", summary="", option
     entry = {"index": next_index, "ai": ai_text, "summary": summary}
     if not is_opening and polished_input:
         entry["user"] = polished_input
-    if image_prompts:
-        entry["image_prompts"] = image_prompts
+    if tokens:
+        entry["tokens"] = tokens
 
     log.append(entry)
     write_chat_log(card_folder, log)
     write_content_js(card_folder)
 
-    # Update state: increment generatedCount
+    # Update state: increment generatedCount and accumulate totalTokens
     state_raw = read_state()
     new_count = (next_index + 1)
     state_raw = re.sub(r'(\s+generatedCount:\s*)\d+', rf'\g<1>{new_count}', state_raw)
+    if tokens and tokens.get("total", 0) > 0:
+        # Accumulate into totalTokens
+        m = re.search(r'totalTokens:\s*(\d+)', state_raw)
+        prev_total = int(m.group(1)) if m else 0
+        new_total = prev_total + tokens["total"]
+        state_raw = re.sub(r'(\s+totalTokens:\s*)\d+', rf'\g<1>{new_total}', state_raw)
     write_state(state_raw)
 
     return next_index
@@ -340,7 +334,7 @@ if __name__ == "__main__":
     summary = parts.get("summary", "")
     options = parts.get("options", "")
     polished_input = parts.get("polished_input", "")
-    image_prompts = parts.get("image_prompts", [])
+    tokens = parts.get("tokens", None)
 
     idx = append_turn(
         card_folder,
@@ -349,7 +343,7 @@ if __name__ == "__main__":
         summary=summary,
         options=options,
         is_opening=is_opening,
-        image_prompts=image_prompts,
+        tokens=tokens,
     )
 
     # Clean up

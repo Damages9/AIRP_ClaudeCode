@@ -237,57 +237,6 @@ body {
 }
 #toast.show { opacity: 1; }
 
-/* ═══ IMAGE GEN BUTTONS ═══ */
-.img-gen-btn {
-  display: inline-block; margin: 6px 0; padding: 5px 14px;
-  border-radius: 14px; font-size: 0.78em; cursor: pointer;
-  border: 1px dashed var(--border); color: var(--muted);
-  background: var(--bg); transition: all 0.2s;
-  user-select: none;
-}
-.img-gen-btn:hover { border-color: var(--accent); color: var(--accent); }
-.img-gen-btn.auto {
-  border-style: solid; border-color: #b06a3d; color: #b06a3d;
-  animation: pulse-border 2.5s ease-in-out infinite;
-}
-@keyframes pulse-border {
-  0%, 100% { border-color: #b06a3d; box-shadow: 0 0 0 0 rgba(176,106,61,0.2); }
-  50% { border-color: #d4845a; box-shadow: 0 0 6px 2px rgba(176,106,61,0.15); }
-}
-.img-gen-btn.loading {
-  border-color: var(--accent2); color: var(--accent2);
-  animation: none; pointer-events: none; opacity: 0.8;
-}
-.img-gen-btn.loading::after { content: " ⏳"; animation: spin 1s linear infinite; display: inline-block; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-
-/* ═══ GENERATED IMAGE ═══ */
-.gen-img {
-  display: block; max-width: 100%; height: auto;
-  border-radius: 8px; margin: 8px 0; cursor: zoom-in;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-  transition: transform 0.15s;
-}
-.gen-img:hover { transform: scale(1.01); }
-
-/* ═══ LIGHTBOX ═══ */
-#lightbox {
-  display: none; position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,0.88); cursor: zoom-out;
-  justify-content: center; align-items: center;
-}
-#lightbox.show { display: flex; }
-#lightbox img {
-  max-width: 92vw; max-height: 92vh;
-  border-radius: 6px; box-shadow: 0 4px 40px rgba(0,0,0,0.5);
-}
-#lightbox .lb-close {
-  position: absolute; top: 16px; right: 24px;
-  color: #fff; font-size: 28px; cursor: pointer;
-  opacity: 0.6; transition: opacity 0.2s;
-}
-#lightbox .lb-close:hover { opacity: 1; }
-
 /* ═══ DARK MODE OVERRIDES ═══ */
 [data-theme="dark"] .turn-user .turn-text {
   background: #1e1e2a;
@@ -301,7 +250,6 @@ body {
 [data-theme="dark"] #settings-saved { color: #7aaa7a; }
 [data-theme="dark"] #theme-toggle:hover { background: var(--surface); }
 [data-theme="dark"] .btn-reroll:hover { color: #1b1b26; }
-[data-theme="dark"] .img-gen-btn:hover { background: var(--surface); }
 [data-theme="dark"] .btn-turn-del:hover,
 [data-theme="dark"] .btn-turn-del.confirming { color: #fff; }
 [data-theme="dark"] #toast { color: #1b1b26; }
@@ -326,6 +274,8 @@ body {
   <span class="dim" id="tb-count">已生成: 0</span>
   <span class="sep">|</span>
   <span class="dim" id="tb-wordcount" title="最新回复字数 / 目标字数">字数: —</span>
+  <span class="sep">|</span>
+  <span class="dim" id="tb-tokens" title="本轮Token / 累计Token">Token: —</span>
   <span class="sep">|</span>
   <button id="theme-toggle" title="切换夜间模式" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:0.9em;padding:1px 6px;line-height:1;color:var(--muted);">🌙</button>
 </div>
@@ -396,72 +346,6 @@ body {
       </select>
     </div>
     <div class="side-card">
-      <h4>🖼️ 文生图</h4>
-      <div class="setting-row">
-        <span class="label">启用</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="set-imgen-enabled" onchange="saveSettings()" checked>
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <span class="label">自动检测</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="set-imgen-auto" onchange="saveSettings()" checked>
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <span class="label">后端</span>
-        <select id="set-imgen-backend" onchange="saveSettings(); toggleImgBackend()">
-          <option value="novelai">NovelAI</option>
-          <option value="comfyui">ComfyUI</option>
-        </select>
-      </div>
-      <div id="imgen-nai-settings">
-        <div class="setting-row">
-          <span class="label">API Key</span>
-          <input type="password" id="set-nai-key" onchange="saveSettings()" style="width:110px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.75em;font-family:var(--font-ui);outline:none;">
-        </div>
-        <div class="setting-row">
-          <span class="label">模型</span>
-          <select id="set-nai-model" onchange="saveSettings()">
-            <option value="nai-diffusion-4-5-curated">V4.5 Curated</option>
-            <option value="nai-diffusion-4-5-full">V4.5 Full</option>
-            <option value="nai-diffusion-4-curated-preview">V4 Curated</option>
-            <option value="nai-diffusion-4-full">V4 Full</option>
-            <option value="nai-diffusion-3">V3</option>
-            <option value="nai-diffusion-furry-3">Furry V3</option>
-          </select>
-        </div>
-      </div>
-      <div id="imgen-comfy-settings" style="display:none;">
-        <div class="setting-row">
-          <span class="label">地址</span>
-          <input type="text" id="set-comfy-url" onchange="saveSettings()" value="http://127.0.0.1:8188" style="width:130px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.75em;font-family:var(--font-ui);outline:none;">
-        </div>
-      </div>
-      <div class="setting-row">
-        <span class="label">分辨率</span>
-        <select id="set-nai-size" onchange="saveSettings()">
-          <option value="832x1216">竖版 832x1216</option>
-          <option value="1216x832">横版 1216x832</option>
-          <option value="1024x1024">方形 1024x1024</option>
-          <option value="1664x2432">大图 1664x2432</option>
-        </select>
-      </div>
-      <div class="setting-row">
-        <span class="label">步数</span>
-        <input type="range" id="set-nai-steps" oninput="saveSettings()" min="15" max="50" value="28" style="width:100px;">
-        <span id="steps-val" style="font-size:0.75em;color:var(--muted);">28</span>
-      </div>
-      <div class="setting-row">
-        <span class="label">Scale</span>
-        <input type="range" id="set-nai-scale" oninput="saveSettings()" min="1" max="15" value="3" step="0.5" style="width:100px;">
-        <span id="scale-val" style="font-size:0.75em;color:var(--muted);">3</span>
-      </div>
-    </div>
-    <div class="side-card">
       <h4>📋 剧情摘要</h4>
       <div class="summary-text" id="sb-summary">暂无</div>
     </div>
@@ -485,11 +369,6 @@ body {
 </div>
 
 <div id="toast">✓ 已复制到剪贴板，请粘贴到 Claude Code</div>
-
-<div id="lightbox" onclick="closeLightbox()">
-  <span class="lb-close" onclick="closeLightbox()">✕</span>
-  <img id="lightbox-img" src="" alt="">
-</div>
 
 <script>
 // ═══ Dynamic script reloader (no page flash) ═══
@@ -664,11 +543,11 @@ function render() {
   // Inject per-turn delete buttons
   injectTurnButtons();
 
-  // Apply persisted generated images
-  applyTurnImages();
-
   // Word count check
   updateWordCount();
+
+  // Token count display
+  updateTokenCount();
 
   // Openings switcher visibility
   updateOpeningsCard(S);
@@ -944,25 +823,10 @@ async function loadSettings() {
     document.getElementById('set-bgnpc').checked = s.bgNpc === true;
     document.getElementById('set-wordcount').value = s.wordCount || 600;
     if (s.charName) document.getElementById('char-name').value = s.charName;
-    // Image-gen settings
-    document.getElementById('set-imgen-enabled').checked = s.imageGenEnabled !== false;
-    document.getElementById('set-imgen-auto').checked = s.imageGenAuto !== false;
-    document.getElementById('set-imgen-backend').value = s.imageGenBackend || 'novelai';
-    document.getElementById('set-nai-key').value = s.naiApiKey || '';
-    document.getElementById('set-nai-model').value = s.naiModel || 'nai-diffusion-4-5-curated';
-    var w = s.naiWidth || 832, h = s.naiHeight || 1216;
-    document.getElementById('set-nai-size').value = w + 'x' + h;
-    document.getElementById('set-nai-steps').value = s.naiSteps || 28;
-    document.getElementById('set-nai-scale').value = s.naiScale || 3;
-    document.getElementById('set-comfy-url').value = s.comfyUrl || 'http://127.0.0.1:8188';
-    document.getElementById('steps-val').textContent = document.getElementById('set-nai-steps').value;
-    document.getElementById('scale-val').textContent = document.getElementById('set-nai-scale').value;
-    toggleImgBackend();
   } catch(e) { /* server may not be ready yet */ }
 }
 
 async function saveSettings() {
-  var sz = (document.getElementById('set-nai-size').value || '832x1216').split('x');
   const data = {
     style: document.getElementById('set-style').value,
     nsfw: document.getElementById('set-nsfw').value,
@@ -970,20 +834,8 @@ async function saveSettings() {
     antiImpersonation: document.getElementById('set-antiimp').checked,
     bgNpc: document.getElementById('set-bgnpc').checked,
     wordCount: parseInt(document.getElementById('set-wordcount').value) || 600,
-    charName: document.getElementById('char-name').value.trim(),
-    imageGenEnabled: document.getElementById('set-imgen-enabled').checked,
-    imageGenAuto: document.getElementById('set-imgen-auto').checked,
-    imageGenBackend: document.getElementById('set-imgen-backend').value,
-    naiApiKey: document.getElementById('set-nai-key').value,
-    naiModel: document.getElementById('set-nai-model').value,
-    naiWidth: parseInt(sz[0]) || 832,
-    naiHeight: parseInt(sz[1]) || 1216,
-    naiSteps: parseInt(document.getElementById('set-nai-steps').value) || 28,
-    naiScale: parseFloat(document.getElementById('set-nai-scale').value) || 3,
-    comfyUrl: document.getElementById('set-comfy-url').value
+    charName: document.getElementById('char-name').value.trim()
   };
-  document.getElementById('steps-val').textContent = data.naiSteps;
-  document.getElementById('scale-val').textContent = data.naiScale;
   try {
     await fetch(BRIDGE + '/api/settings', {
       method: 'POST',
@@ -1008,117 +860,27 @@ document.getElementById('char-name').addEventListener('input', function() {
   this._timer = setTimeout(onCharNameChange, 600);
 });
 
-// ═══ Image Gen ═══
-
-async function doImageGen(btn) {
-  if (btn.classList.contains('loading')) return;
-  var turn = parseInt(btn.getAttribute('data-turn'));
-  var seg = parseInt(btn.getAttribute('data-seg'));
-  if (isNaN(turn) || isNaN(seg)) return;
-
-  btn.classList.add('loading');
-  btn.textContent = '生成中';
-
-  try {
-    var r = await fetch(BRIDGE + '/api/image-gen/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ turn: turn, seg: seg })
-    });
-    var data = await r.json();
-    if (data.ok) {
-      var img = document.createElement('img');
-      img.src = data.url;
-      img.className = 'gen-img';
-      img.setAttribute('data-turn', turn);
-      img.setAttribute('data-seg', seg);
-      img.alt = 'AI生成插图';
-      img.addEventListener('click', function(e) { e.stopPropagation(); openLightbox(this.src); });
-      btn.parentNode.replaceChild(img, btn);
-      showToast('✓ 插图已生成');
-    } else {
-      btn.classList.remove('loading');
-      btn.textContent = '🔄 重试';
-      btn.title = data.error || '生成失败';
-      showError(data.error || '生成失败 — 请检查 API Key 和服务');
-      setTimeout(function() { if (btn.textContent === '🔄 重试') { btn.textContent = '🎨 生成插图'; } }, 5000);
-    }
-  } catch(e) {
-    btn.classList.remove('loading');
-    btn.textContent = '🔄 重试';
-    showError('无法连接服务器');
-    setTimeout(function() { if (btn.textContent === '🔄 重试') { btn.textContent = '🎨 生成插图'; } }, 5000);
+function updateTokenCount() {
+  var el = document.getElementById('tb-tokens');
+  if (!el) return;
+  var turnTokens = window.TURN_TOKENS || {};
+  var keys = Object.keys(turnTokens);
+  var lastTotal = 0;
+  if (keys.length > 0) {
+    var last = turnTokens[keys[keys.length - 1]];
+    lastTotal = last.total || 0;
+  }
+  var cumulative = (window.STATE && window.STATE.totalTokens) ? window.STATE.totalTokens : 0;
+  if (lastTotal > 0 || cumulative > 0) {
+    el.textContent = 'Token: ' + formatNum(lastTotal) + ' / ' + formatNum(cumulative);
+  } else {
+    el.textContent = 'Token: —';
   }
 }
 
-// ═══ Lightbox ═══
-
-function openLightbox(src) {
-  var lb = document.getElementById('lightbox');
-  var img = document.getElementById('lightbox-img');
-  img.src = src;
-  lb.classList.add('show');
-  document.addEventListener('keydown', onLightboxKey);
-}
-
-function closeLightbox() {
-  var lb = document.getElementById('lightbox');
-  lb.classList.remove('show');
-  document.getElementById('lightbox-img').src = '';
-  document.removeEventListener('keydown', onLightboxKey);
-}
-
-function onLightboxKey(e) {
-  if (e.key === 'Escape') closeLightbox();
-}
-
-// ═══ Image Gen Settings ═══
-
-function toggleImgBackend() {
-  var backend = document.getElementById('set-imgen-backend').value;
-  document.getElementById('imgen-nai-settings').style.display = (backend === 'novelai') ? '' : 'none';
-  document.getElementById('imgen-comfy-settings').style.display = (backend === 'comfyui') ? '' : 'none';
-}
-
-document.getElementById('set-nai-steps').addEventListener('input', function() {
-  document.getElementById('steps-val').textContent = this.value;
-});
-document.getElementById('set-nai-scale').addEventListener('input', function() {
-  document.getElementById('scale-val').textContent = this.value;
-});
-
-// Delegate click for dynamically created img-gen buttons
-document.getElementById('doc').addEventListener('click', function(e) {
-  var btn = e.target.closest('.img-gen-btn');
-  if (btn) { e.preventDefault(); doImageGen(btn); }
-  var img = e.target.closest('.gen-img');
-  if (img) { openLightbox(img.src); }
-});
-
-// ═══ TURN_IMAGES persistence ═══
-// Called during render() to swap buttons for already-generated images
-function applyTurnImages() {
-  if (!window.TURN_IMAGES) return;
-  var images = window.TURN_IMAGES;
-  var doc = document.getElementById('doc');
-  Object.keys(images).forEach(function(key) {
-    var parts = key.split('_');
-    var turn = parts[0];
-    var seg = parts[1];
-    var url = images[key];
-    // Find the button with matching data-turn/data-seg
-    var btn = doc.querySelector('.img-gen-btn[data-turn="' + turn + '"][data-seg="' + seg + '"]');
-    if (btn) {
-      var img = document.createElement('img');
-      img.src = url;
-      img.className = 'gen-img';
-      img.setAttribute('data-turn', turn);
-      img.setAttribute('data-seg', seg);
-      img.alt = 'AI生成插图';
-      img.addEventListener('click', function(e) { e.stopPropagation(); openLightbox(this.src); });
-      btn.parentNode.replaceChild(img, btn);
-    }
-  });
+function formatNum(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return String(n);
 }
 
 // No page flash: use dynamic script reloading instead of meta refresh
@@ -1150,6 +912,7 @@ setInterval(loadStyleProfiles, 15000);
     }
     // Re-check word count colors for current theme
     if (typeof updateWordCount === 'function') updateWordCount();
+    if (typeof updateTokenCount === 'function') updateTokenCount();
   });
 })();
 </script>
