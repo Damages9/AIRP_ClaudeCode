@@ -25,7 +25,7 @@ Clear-Host
 Write-Banner "DeepSeek API + Claude Code 一键配置工具"
 Write-Host ""
 Write-Host "  本脚本将为你自动完成：" -ForegroundColor White
-Write-Host "    1. 检查 Node.js / Git 环境"
+Write-Host "    1. 检查并自动安装 Node.js / Git（缺失时自动下载静默安装）"
 Write-Host "    2. 安装/更新 Claude Code"
 Write-Host "    3. 配置 DeepSeek API 环境变量（持久化）"
 Write-Host "    4. 验证配置是否成功"
@@ -35,43 +35,203 @@ Write-Host "  获取地址：https://platform.deepseek.com/api_keys" -Foreground
 Write-Host ""
 
 # ============================================================
-# Step 2: 检查 Node.js 和 Git
+# 辅助函数：刷新当前会话的 PATH（识别新安装的软件）
+# ============================================================
+function Update-SessionPath {
+    foreach ($scope in @("Machine", "User")) {
+        $envPath = [Environment]::GetEnvironmentVariable("Path", $scope)
+        if ($envPath) {
+            foreach ($entry in $envPath -split ";") {
+                $trimmed = $entry.Trim()
+                if ($trimmed -and (Test-Path $trimmed)) {
+                    $existing = [Environment]::GetEnvironmentVariable("Path", "Process") -split ";"
+                    if ($trimmed -notin $existing) {
+                        [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Process") + ";$trimmed", "Process")
+                    }
+                }
+            }
+        }
+    }
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Process")
+}
+
+# ============================================================
+# 辅助函数：检测 winget 是否可用
+# ============================================================
+function Test-Winget {
+    try {
+        $null = Get-Command winget -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# ============================================================
+# 辅助函数：安装 Node.js
+# ============================================================
+function Install-NodeJS {
+    Write-Host "  正在自动安装 Node.js（LTS 版本）..." -ForegroundColor Yellow
+
+    if (Test-Winget) {
+        Write-Host "  使用 winget 安装..." -ForegroundColor DarkGray
+        winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            # Refresh PATH so node/npm become available
+            Update-SessionPath
+            try {
+                $v = node --version 2>&1
+                Write-OK "Node.js 安装成功: $v"
+                return $true
+            } catch {
+                Write-Warn "winget 安装完成但 node 不可用，尝试刷新环境..."
+                refreshenv 2>$null
+                Update-SessionPath
+                try {
+                    $v = node --version 2>&1
+                    Write-OK "Node.js 安装成功: $v"
+                    return $true
+                } catch {
+                    Write-Warn "当前会话可能无法识别 node，重启终端后生效"
+                    Write-Host "  安装程序已运行，请重新运行此脚本" -ForegroundColor Yellow
+                    Read-Host "  按回车退出"
+                    exit 1
+                }
+            }
+        }
+    }
+
+    # winget 不可用，直接下载 MSI
+    Write-Warn "winget 不可用，正在通过浏览器下载 Node.js..."
+    $url = "https://nodejs.org/dist/v20.19.0/node-v20.19.0-x64.msi"
+    $installer = "$env:TEMP\nodejs-installer.msi"
+
+    Write-Host "  下载中: $url" -ForegroundColor DarkGray
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+    } catch {
+        Write-Err "下载 Node.js 失败: $_"
+        Write-Host "  请手动安装 Node.js: https://nodejs.org/zh-cn/download/" -ForegroundColor Yellow
+        Read-Host "  按回车退出"
+        exit 1
+    }
+
+    Write-Host "  正在静默安装 Node.js..." -ForegroundColor DarkGray
+    Start-Process msiexec.exe -ArgumentList "/i `"$installer`" /quiet /norestart" -Wait
+    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+    Update-SessionPath
+
+    try {
+        $v = node --version 2>&1
+        Write-OK "Node.js 安装成功: $v"
+        return $true
+    } catch {
+        Write-Warn "Node.js 安装完成但当前会话未识别"
+        Write-Host "  请重新运行此脚本继续配置" -ForegroundColor Yellow
+        Read-Host "  按回车退出"
+        exit 1
+    }
+}
+
+# ============================================================
+# 辅助函数：安装 Git
+# ============================================================
+function Install-Git {
+    Write-Host "  正在自动安装 Git for Windows..." -ForegroundColor Yellow
+
+    if (Test-Winget) {
+        Write-Host "  使用 winget 安装..." -ForegroundColor DarkGray
+        winget install Git.Git --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Update-SessionPath
+            try {
+                $v = git --version 2>&1
+                Write-OK "Git 安装成功: $v"
+                return $true
+            } catch {
+                refreshenv 2>$null
+                Update-SessionPath
+                try {
+                    $v = git --version 2>&1
+                    Write-OK "Git 安装成功: $v"
+                    return $true
+                } catch {
+                    Write-Warn "当前会话无法识别 git，重启终端后生效"
+                    Write-Host "  安装程序已运行，请重新运行此脚本" -ForegroundColor Yellow
+                    Read-Host "  按回车退出"
+                    exit 1
+                }
+            }
+        }
+    }
+
+    # winget 不可用，直接下载 EXE
+    Write-Warn "winget 不可用，正在下载 Git for Windows..."
+    $url = "https://github.com/git-for-windows/git/releases/download/v2.49.0.windows.1/Git-2.49.0-64-bit.exe"
+    $installer = "$env:TEMP\git-installer.exe"
+
+    Write-Host "  下载中..." -ForegroundColor DarkGray
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+    } catch {
+        Write-Err "下载 Git 失败: $_"
+        Write-Host "  请手动安装 Git: https://git-scm.com/download/win" -ForegroundColor Yellow
+        Read-Host "  按回车退出"
+        exit 1
+    }
+
+    Write-Host "  正在静默安装 Git..." -ForegroundColor DarkGray
+    Start-Process $installer -ArgumentList "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS" -Wait
+    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+    Update-SessionPath
+
+    try {
+        $v = git --version 2>&1
+        Write-OK "Git 安装成功: $v"
+        return $true
+    } catch {
+        Write-Warn "Git 安装完成但当前会话未识别"
+        Write-Host "  请重新运行此脚本继续配置" -ForegroundColor Yellow
+        Read-Host "  按回车退出"
+        exit 1
+    }
+}
+
+# ============================================================
+# Step 2: 检查 Node.js 和 Git（缺失则自动安装）
 # ============================================================
 Write-Step "正在检查运行环境..."
 
-$allOk = $true
-
+# --- Node.js ---
+$nodeInstalled = $false
 try {
     $nodeVer = node --version 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-OK "Node.js 已安装: $nodeVer"
-    } else {
-        throw "Node.js 未安装"
+        $nodeInstalled = $true
     }
-} catch {
-    Write-Err "未检测到 Node.js！"
-    Write-Host "  请先安装 Node.js：https://nodejs.org/zh-cn/download/" -ForegroundColor Yellow
-    Write-Host "  推荐下载 LTS 版本（18+）" -ForegroundColor Yellow
-    $allOk = $false
+} catch {}
+
+if (-not $nodeInstalled) {
+    Write-Warn "未检测到 Node.js"
+    Install-NodeJS
 }
 
+# --- Git ---
+$gitInstalled = $false
 try {
     $gitVer = git --version 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-OK "Git 已安装: $gitVer"
-    } else {
-        throw "Git 未安装"
+        $gitInstalled = $true
     }
-} catch {
-    Write-Err "未检测到 Git！"
-    Write-Host "  请先安装 Git：https://git-scm.com/download/win" -ForegroundColor Yellow
-    $allOk = $false
-}
+} catch {}
 
-if (-not $allOk) {
-    Write-Host "`n请安装缺失的环境后重新运行此脚本。按任意键退出..." -ForegroundColor Red
-    $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    exit 1
+if (-not $gitInstalled) {
+    Write-Warn "未检测到 Git"
+    Install-Git
 }
 
 # ============================================================
@@ -157,9 +317,9 @@ Write-Step "正在写入持久化环境变量（注册表）..."
 $envVars = @{
     "ANTHROPIC_BASE_URL"               = "https://api.deepseek.com/anthropic"
     "ANTHROPIC_AUTH_TOKEN"             = $apiKey
-    "ANTHROPIC_MODEL"                  = "deepseek-v4-pro"
-    "ANTHROPIC_DEFAULT_OPUS_MODEL"     = "deepseek-v4-pro"
-    "ANTHROPIC_DEFAULT_SONNET_MODEL"   = "deepseek-v4-pro"
+    "ANTHROPIC_MODEL"                  = "deepseek-v4-pro[1m]"
+    "ANTHROPIC_DEFAULT_OPUS_MODEL"     = "deepseek-v4-pro[1m]"
+    "ANTHROPIC_DEFAULT_SONNET_MODEL"   = "deepseek-v4-pro[1m]"
     "ANTHROPIC_DEFAULT_HAIKU_MODEL"    = "deepseek-v4-flash"
     "CLAUDE_CODE_SUBAGENT_MODEL"       = "deepseek-v4-flash"
     "CLAUDE_CODE_EFFORT_LEVEL"         = "max"

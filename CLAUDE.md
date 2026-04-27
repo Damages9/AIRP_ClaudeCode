@@ -175,14 +175,16 @@ window.SUMMARY_TEXT = '';
 
 ## 每轮处理
 
-Cron 每分钟检查 `/api/pending`，当返回 `{"pending":true}` 时自动执行：
+Cron 每分钟检查 `/api/pending`，当返回 `{"pending":true}` 时自动执行。
+
+**关键原则：信任对话历史**。Claude Code 保留了完整的对话历史，之前读取过的 chat_log.json 和 memory 文件内容无需重复读取——它们已在上下文中。只在对话被压缩导致记忆模糊时才回读文件。
 
 1. 读取 `{ROOT}/skills/styles/input.txt` 获取用户输入
-2. 读取 `{ROOT}/skills/styles/settings.json` 获取当前预设（文风/NSFW/人称/字数等）。根据 style 字段，读取 `{ROOT}/skills/styles/profiles/{style}.md` 获取完整文风规则。如果文件不存在，回退到默认的北棱特调风格。
+2. 读取 `{ROOT}/skills/styles/settings.json` 获取当前预设。**不要重新读取 profiles/{style}.md**——文风规则的完整内容已在上文对话历史中，除非 style 字段发生了切换。
 3. **输入润色**：将用户原始输入解读为两个部分：
    - **润色后叙事**：将用户简短/口语化的输入扩展为流畅的角色动作与对白。保留用户意图，不增不减。
    - **场景快照**：当前时间、地点、在场人物及各自状态（一句话概括）。润色结果替代原始输入参与后续生成。
-4. **思考流程**：走完下方「生成前思考流程」五步（内部思考）
+4. **思考流程**：走完下方「生成前思考流程」五步（内部思考）。翻记忆时依赖对话历史中已有的既往轮次内容——**不要重新读取 chat_log.json 或 memory 文件**。如果对话因压缩导致上下文缺失，最多只读 `memory/project.md` 的最新摘要。
 5. 生成叙事回复 + summary + options
 6. 按下方「输出格式」写入 `{ROOT}/skills/styles/response.txt`
 7. 执行：`python "{ROOT}/skills/handler.py" "<卡片文件夹绝对路径>"`
