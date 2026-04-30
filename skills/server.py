@@ -326,6 +326,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._json({"pending": False})
             return
 
+        # API: long-poll until pending becomes true (replaces Monitor polling)
+        if parsed.path == "/api/wait_pending":
+            import time
+            timeout = 300
+            start = time.time()
+            while time.time() - start < timeout:
+                if PENDING_FILE.exists():
+                    text = INPUT_FILE.read_text(encoding="utf-8") if INPUT_FILE.exists() else ""
+                    self._json({"pending": True, "text": text})
+                    return
+                time.sleep(1)
+            self._json({"pending": False})
+            return
+
         # API: mark as processed (Claude Code calls this after reading)
         if parsed.path == "/api/done":
             PENDING_FILE.unlink(missing_ok=True)

@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Code RP</title>
+<script src="lib/jquery-3.5.1.min.js"></script>
+<script src="lib/lodash-4.17.21.min.js"></script>
+<link rel="stylesheet" href="lib/toastr-2.1.4.min.css">
+<script src="lib/toastr-2.1.4.min.js"></script>
+<script src="_regex_engine.js"></script>
 <style>
 :root {
   --bg: #f5f0e8;
@@ -895,6 +900,9 @@ body {
 <div id="input-panel">
   <div class="input-row">
     <textarea id="user-input" placeholder="在此输入你的回复或指令..." rows="2"></textarea>
+    <!-- 酒馆桥接元素：卡脚本期望的 send_textarea / send_but -->
+    <textarea id="send_textarea" style="display:none"></textarea>
+    <div id="send_but" style="display:none"></div>
     <div class="btn-group">
       <button class="btn-submit" onclick="doSubmit()">▶ 提交</button>
       <button class="btn-secondary" onclick="doClear()">清空</button>
@@ -902,7 +910,7 @@ body {
   </div>
   <div class="meta-row">
     <span>你的角色名:</span>
-    <input id="char-name" placeholder="可选" value="" oninput="onPlayerNameChange();">
+    <input id="player-name-input" placeholder="可选" value="" oninput="onPlayerNameChange();">
     <span style="flex:1;"></span>
     <span id="last-action" style="font-style:italic;"></span>
   </div>
@@ -918,6 +926,7 @@ body {
 <script src="_st_shims.js?v=2"></script>
 <script>
 // ═══ Dynamic script reloader (no page flash) ═══
+console.log('[RP-Frontend] Initialized. jQuery:', typeof jQuery, 'lodash:', typeof window._, 'toastr:', typeof toastr);
 let pollTimer = null;
 let lastStateMtime = 0;
 let lastContentMtime = 0;
@@ -1000,25 +1009,30 @@ function updateWordCount() {
 }
 
 function userName() {
-  const v = document.getElementById('char-name').value.trim();
+  const el = document.getElementById('player-name-input');
+  if (!el || el.value === undefined) return '{{user}}';
+  const v = el.value.trim();
   return v || '{{user}}';
 }
 
 function syncPlayerName() {
-  // Sync #char-name from MVU variables (initvar) on first load
+  // Sync #player-name-input from MVU variables (initvar) on first load
   var vars = window.MVU_VARIABLES;
   if (!vars) return;
   var playerName = (vars['玩家'] && vars['玩家']['姓名']) || '';
   if (!playerName || playerName === '{{user}}') return;
-  var input = document.getElementById('char-name');
-  if (input && !input.dataset.synced && (!input.value || input.value === '{{user}}')) {
+  var input = document.querySelector('#input-panel input[id*="char-name"], #char-name.form-input');
+  if (!input) input = document.getElementById('player-name-input');
+  if (input && input.tagName === 'INPUT' && !input.dataset.synced && (!input.value || input.value === '{{user}}')) {
     input.value = playerName;
     input.dataset.synced = '1';
   }
 }
 
 function onPlayerNameChange() {
-  var input = document.getElementById('char-name');
+  var input = document.querySelector('#input-panel input[id*="char-name"], #char-name.form-input');
+  if (!input) input = document.getElementById('player-name-input');
+  if (!input || input.tagName !== 'INPUT') return;
   var vars = window.MVU_VARIABLES;
   if (!vars || !vars['玩家']) return;
   var newName = input.value.trim();
@@ -1139,15 +1153,13 @@ function render() {
   const contentEl = document.getElementById('doc');
   let newContent = window.CONTENT_HTML || '<div style="padding:60px;text-align:center;color:var(--muted);">等待生成内容...</div>';
   newContent = replaceUser(newContent);
-  // Apply card author's markdownOnly regex scripts (faithful to ST pipeline)
+  // Apply card author's regex scripts via SillyTavern-compatible engine.
+  // Uses getRegexedString() from _regex_engine.js with proper placement
+  // filtering (markdownOnly/promptOnly/placement/depth).
   var regexScripts = window.REGEX_SCRIPTS || [];
-  for (var rx = 0; rx < regexScripts.length; rx++) {
-    var rs = regexScripts[rx];
-    if (!rs.markdownOnly) continue;
-    try {
-      var re = new RegExp(rs.find, rs.flags || '');
-      newContent = newContent.replace(re, rs.replace || '');
-    } catch (e) { /* bad regex from card author — skip */ }
+  if (regexScripts.length && typeof window.registerRegexScripts === 'function') {
+    window.registerRegexScripts(regexScripts);
+    newContent = window.getRegexedString(newContent, 2 /* AI_OUTPUT */, { isMarkdown: true });
   }
   if (_prevContentHtml !== newContent) {
     _prevContentHtml = newContent;
@@ -1159,7 +1171,9 @@ function render() {
     for (var si = 0; si < embScripts.length; si++) {
       var oldS = embScripts[si];
       var newS = document.createElement('script');
-      if (oldS.textContent) newS.textContent = oldS.textContent;
+      if (oldS.textContent) {
+        newS.textContent = 'try {\n' + oldS.textContent + '\n} catch(e) { console.error("[card-script] Execution error:", e); if (typeof toastr !== "undefined") toastr.error("[card-script] " + e.message); }';
+      }
       if (oldS.src) newS.src = oldS.src;
       oldS.parentNode.replaceChild(newS, oldS);
     }
@@ -1188,10 +1202,13 @@ function render() {
     for (var sj = 0; sj < embScriptsB.length; sj++) {
       var oldSB = embScriptsB[sj];
       var newSB = document.createElement('script');
-      if (oldSB.textContent) newSB.textContent = oldSB.textContent;
+      if (oldSB.textContent) {
+        newSB.textContent = 'try {\n' + oldSB.textContent + '\n} catch(e) { console.error("[beautify-script] Execution error:", e); }';
+      }
       if (oldSB.src) newSB.src = oldSB.src;
       oldSB.parentNode.replaceChild(newSB, oldSB);
     }
+    console.log('[beautify] Re-executed ' + embScriptsB.length + ' script(s), jQuery=' + (typeof $) + ', _=' + (typeof _));
   }
 
   // Sidebar
@@ -1337,6 +1354,22 @@ function pickAction(action) {
 const BRIDGE = 'http://localhost:8765';
 let bridgeOk = false;
 
+// ═══ 酒馆桥接：卡脚本 → 我们前端 ═══
+// 卡内嵌脚本使用 SillyTavern 标准元素 ID:
+//   #send_textarea (输入框)  #send_but (发送按钮)
+// 这些隐藏元素接收卡脚本的写入/点击，同步到我们的 #user-input / doSubmit()
+$(function() {
+  var $st = $('#send_textarea');
+  var $ui = $('#user-input');
+  $st.on('input change', function() {
+    $ui.val($st.val());
+  });
+  $('#send_but').on('click', function() {
+    $ui.val($st.val() || $ui.val());
+    doSubmit();
+  });
+});
+
 async function doReroll() {
   const btn = document.querySelector('.btn-reroll');
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
@@ -1430,8 +1463,10 @@ async function checkBridge() {
 }
 
 async function doSubmit() {
+  console.log('[RP-Frontend] doSubmit called');
   const input = document.getElementById('user-input').value.trim();
-  const charName = document.getElementById('char-name').value.trim();
+  const charNameEl = document.querySelector('#input-panel input[id*="char-name"]');
+  const charName = charNameEl ? charNameEl.value.trim() : '';
   if (!input) return;
 
   const btn = document.querySelector('.btn-submit');
@@ -1525,7 +1560,7 @@ async function loadSettings() {
     document.getElementById('set-antiimp').checked = s.antiImpersonation !== false;
     document.getElementById('set-bgnpc').checked = s.bgNpc === true;
     document.getElementById('set-wordcount').value = s.wordCount || 600;
-    if (s.charName) document.getElementById('char-name').value = s.charName;
+    if (s.charName) document.getElementById('player-name-input').value = s.charName;
   } catch(e) { /* server may not be ready yet */ }
 }
 
@@ -1537,7 +1572,7 @@ async function saveSettings() {
     antiImpersonation: document.getElementById('set-antiimp').checked,
     bgNpc: document.getElementById('set-bgnpc').checked,
     wordCount: parseInt(document.getElementById('set-wordcount').value) || 600,
-    charName: document.getElementById('char-name').value.trim()
+    charName: document.getElementById('player-name-input').value.trim()
   };
   try {
     await fetch(BRIDGE + '/api/settings', {
@@ -1557,7 +1592,7 @@ function onCharNameChange() {
   saveSettings();
   render();
 }
-document.getElementById('char-name').addEventListener('input', function() {
+document.getElementById('player-name-input').addEventListener('input', function() {
   // Debounce
   clearTimeout(this._timer);
   this._timer = setTimeout(onCharNameChange, 600);

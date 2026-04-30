@@ -13,7 +13,8 @@
 - `{ROOT}/skills/styles/profiles/` 下所有 `.md` 文件 — 文风配置读写
 - 当前卡片文件夹（如 `{ROOT}/我的角色/`）下的 `chat_log.json`、`.card_data.json`、`.initvar.json`、`.var_diff.json`、`.beautify.json`
 - 当前卡片文件夹下的 `memory/` 目录及其所有 `.md`、`.json` 文件 — 跨会话记忆与世界书索引
-- `{ROOT}/skills/handler.py`, `{ROOT}/skills/server.py`, `{ROOT}/skills/mvu_engine.py`, `{ROOT}/skills/mvu_check.py`, `{ROOT}/skills/match_worldbook.py`, `{ROOT}/skills/write_memory.py`, `{ROOT}/skills/post_quality_check.py`
+- `{ROOT}/skills/styles/round_context.txt` — 回合预处理汇总上下文
+- `{ROOT}/skills/handler.py`, `{ROOT}/skills/server.py`, `{ROOT}/skills/mvu_engine.py`, `{ROOT}/skills/mvu_check.py`, `{ROOT}/skills/match_worldbook.py`, `{ROOT}/skills/write_memory.py`, `{ROOT}/skills/post_quality_check.py`, `{ROOT}/skills/round_prepare.py`, `{ROOT}/skills/round_deliver.py`
 - `{ROOT}/STORY.md` — 叙事理论框架，剧情规划时读取
 - `{ROOT}/CLAUDE.md`
 
@@ -39,10 +40,10 @@
 - `python "{ROOT}/skills/match_worldbook.py" "<卡片文件夹>"` — 匹配变量变更与世界书索引，返回 top-3 相关条目
 - `python "{ROOT}/skills/post_quality_check.py" "{ROOT}"` — 合并 token 采集 + 字数门禁检查，追加 <tokens> 到 response.txt
 - `python "{ROOT}/skills/write_memory.py" "<卡片文件夹>"` — 追加本轮摘要到 project.md，更新 MEMORY.md 索引
+- `python "{ROOT}/skills/round_prepare.py" "<卡片文件夹>" "{ROOT}"` — 回合预处理管线
+- `python "{ROOT}/skills/round_deliver.py" "<卡片文件夹>" "{ROOT}"` — 回合后处理管线
 - `python -c "..."` — 临时诊断脚本（字符编码修复、JSON 检查、进程管理等，非生产流程）
 - `sleep 2` — 等待服务器就绪
-- `netstat -ano | grep :8765` — 检查端口占用
-- `taskkill` / `Stop-Process` — 清理残留进程
 - `ls -la` 检查 `.pending` 文件
 
 ### 启动阶段额外权限
@@ -80,23 +81,21 @@ with open(r"{ROOT}/skills/styles/.card_path", "w") as f:
 ```
 server.py 通过此文件获知操作哪个 chat_log.json。
 
-### 3. 启动输入监听（Monitor 主通道 + Cron 备份）
+### 3. 启动输入监听（server.py 长轮询）
 
-**主通道：Monitor 持久监听**
+**不再使用 Monitor / Cron**。改为 server.py 内置的 `/api/wait_pending` 长轮询端点（阻塞直到用户提交，最多 5 分钟超时）。
 
-注册 persistent Monitor，每 2 秒轮询 `/api/pending`，仅在 `pending=true` 时输出通知（零空 token 消耗，零上下文污染）：
+启动完成后调用：
 ```
-Monitor: persistent=true, command="while true; do result=$(curl -s --max-time 3 http://localhost:8765/api/pending 2>/dev/null); if echo \"$result\" | grep -q '\"pending\": *true'; then echo \"PENDING_DETECTED: $result\"; echo \"ACTION: 按 CLAUDE.md「每轮处理」流程步骤 1-9 执行完整处理\"; fi; sleep 2; done"
-```
-
-**备份通道：低频 Cron 兜底**
-
-每 10 分钟一次，防止 Monitor 进程意外死亡导致系统静默：
-```
-CronCreate: cron="7,17,27,37,47,57 * * * *", recurring=true, prompt="备份心跳检测（兜底处理）。curl -s http://localhost:8765/api/pending。若 pending=true → 直接按 CLAUDE.md「每轮处理」流程步骤 1-9 执行。若 pending=false → 静默跳过（Monitor 主通道正常运作）。"
+ScheduleWakeup: delaySeconds=5, prompt="<<autonomous-loop-dynamic>>", reason="wakeup to check wait_pending"
 ```
 
-不需要 poll.py。server.py 在用户提交时直接创建 .pending 文件。Monitor 实时检测，无延迟。备份 Cron 仅作保险。
+每次唤醒后执行：
+```
+curl -s --max-time 310 http://localhost:8765/api/wait_pending
+```
+- 若返回 `pending: true` → 按 CLAUDE.md「每轮处理」流程执行，处理完后再次 ScheduleWakeup(delaySeconds=5)
+- 若返回 `pending: false`（超时）→ 再次 ScheduleWakeup 继续等待
 
 ### 4. 检测素材（一键导入）
 执行导入脚本完成全部素材解析：
@@ -134,12 +133,11 @@ python "{ROOT}/skills/import_card.py" "<卡片文件夹>" "{ROOT}"
 | `memory/.card_structure.json` | 卡片叙事结构检测结果——角色/阶段/事件库的 section 映射 | 启动时加载 |
 
 **世界书检索规则**：
-- `.worldbook_index.json` 和 `.card_structure.json` 在上下文中常驻。前者告诉你有什么条目可用，后者告诉你角色分几个阶段、事件库在哪。
-- **不得在生成时全量读取 reference.md**。只读取索引。
-- 当叙事涉及索引中的话题时，用 Grep 从 reference.md 中按 section 标题检索对应条目。Grep 所需的 section 定位符就在索引的 `section` 字段中。
-- 检索命令：`grep -n -A 200 "^## {条目标题}$" "{卡片文件夹}/memory/reference.md"`
-- 读取到的条目正文（Description/Effect/Dynamic/Application）**严格指导**该话题的叙事描写。
-- 每轮最多检索 2-3 个条目——不堆砌。
+- `.worldbook_index.json` 和 `.card_structure.json` 在上下文中常驻。
+- `round_context.txt` 的 `WORLD_MATCHES`（变量驱动）和 `INPUT_MATCHES`（用户输入关键词驱动）已自动检索了相关条目的**完整正文**——AI 优先使用这些已就绪的内容。
+- 当叙事涉及索引中已有、但未自动匹配的话题时，用 Grep 按需检索：`grep -n -A 200 "^## {条目标题}$" "{卡片文件夹}/memory/reference.md"`
+- 读取到的条目正文 **严格指导** 该话题的叙事描写。
+- 每轮额外 Grep 不超过 2-3 个条目。
 
 **初始内容 — 世界书条目自动提取规则**：
 
@@ -229,76 +227,69 @@ window.SUMMARY_TEXT = '';
 
 ## 每轮处理
 
-Monitor 实时监听 `/api/pending`，当检测到 `{"pending":true}` 时自动执行（备份 Cron 每 10 分钟兜底）。
+ScheduleWakeup 自循环 + `/api/wait_pending` 长轮询驱动（server.py 内置），检测到 `pending: true` 时自动执行。备份 Cron 每 10 分钟兜底。
 
 **关键原则：信任对话历史**。Claude Code 保留了完整的对话历史，之前读取过的 chat_log.json 和 memory 文件内容无需重复读取——它们已在上下文中。只在对话被压缩导致记忆模糊时才回读文件。
 
-1. 读取 `{ROOT}/skills/styles/input.txt` 获取用户输入
-2. 读取 `{ROOT}/skills/styles/settings.json` 获取当前预设。**不要重新读取 profiles/{style}.md**——文风规则的完整内容已在上文对话历史中，除非 style 字段发生了切换。
-2.5 **查世界书索引**（脚本化匹配）：执行 `python "{ROOT}/skills/match_worldbook.py" "<卡片文件夹>"` 获取变量变更驱动的 top-3 世界书条目匹配。脚本自动对比 `.var_diff.json` 与 `.worldbook_index.json`，按关键词重叠度评分排序。若返回空数组 → 当前场景不触及世界书话题，跳过。若返回结果 → 对每个匹配条目的 `section` 字段，用 Grep 检索 reference.md 完整正文：`grep -n -A 200 "{section}" "{卡片文件夹}/memory/reference.md"`。每轮最多检索 3 个条目。
-2.6 **注入规则处理**（缓存安全——注入内容随当轮提示词到来、随回复结束而离开，不触碰任何 memory 文件）：
-   - 执行 `python "{ROOT}/skills/handler.py" "{卡片文件夹}" --injections` 获取待注入关键词列表
-   - 若列表为空 → 跳过
-   - 若列表非空 → 对每个关键词，用 Grep 检索 reference.md 中对应世界书条目：`grep -n -A 200 "^## {keyword}$" "{卡片文件夹}/memory/reference.md"`
-   - 检索到的条目正文（Description/Effect/Dynamic/Application）**严格指导**该话题的叙事描写。注入的关键词本身是变量驱动的触发器（如性癖关键词），其对应的世界书条目定义了该关键词在叙事中应如何表现。
-   - 注入关键词及其检索结果不计入步骤 2.5 的 2-3 条上限——它们是自动驱动的，不占手动检索配额。
-2.7 **卡结构驱动的角色编排**（缓存安全——按需 Grep，不加载 reference.md 全文）：
+### 机械步骤（已下沉为脚本，AI 只需调用一次）
 
-   - 检查 `{卡片文件夹}/memory/.card_structure.json` 是否存在。若不存在 → 跳过整个 2.7（旧卡/无结构卡，自由 RP）。
-   - 若存在，读取该 JSON，获得 `has_stages` / `has_events` / `characters` 三个字段。
+**步骤 1** — 执行回合预处理管线，一次性收集所有上下文：
+```
+python "{ROOT}/skills/round_prepare.py" "<卡片文件夹>" "{ROOT}"
+```
+此脚本自动完成：读 input.txt → 读 settings.json → 读近期记忆 → 世界书索引加载 → 卡结构检查 → match_worldbook 匹配+检索 → 注入规则处理+检索 → mvu_check 变量清单+路径树 → 近期对话摘要 → 写入 `{ROOT}/skills/styles/round_context.txt`
 
-   **A. 出场角色 — 阶段人设检索**：
-   - 若 `has_stages` 为 true，找出当前场景中**正在出场的角色**（有对话/互动/描写的），从 `characters` 中找到对应条目，读取其 `stages` 中当前阶段号（从 MVU 变量 `当前阶段` 获取）对应的 `profile` section 标题，Grep 检索 reference.md。
-   - 每轮最多检索 2 个角色的当前阶段人设。无阶段信息的角色在场时，读 `base_profile`。
+### 创作步骤（AI 核心工作）
 
-   **B. 出场角色 — 动态事件检索**：
-   - 若 `has_events` 为 true，检查活跃角色的 `待执行事件编号`：
-     - 为空 → 从当前阶段事件库选下一个未执行事件（Grep 全库 ~150 行，每 5-8 轮一次），写入 `待执行事件编号`，`前置铺垫计数`=0。
-     - 非空 → Grep 单个事件描述（~20 行），按 `前置铺垫计数` 判断铺垫/触发阶段。
+**步骤 2** — 读 `{ROOT}/skills/styles/round_context.txt` 获取汇总上下文。
 
-   **C. 后台 NPC — 活性检查（每轮强制）**：
-   - 从上一轮 stat_data 中列出**所有不在当前场景**的角色。对每个后台角色，读取其 `角色行动` 和 `内心想法` 字段（已在 chat_log 中，无需额外 I/O）。
-   - **时间推进**：本轮时间流逝后，该角色的行动是否有自然进展？例如"在书房翻看报告"→ 过了 30 分钟 → 可能"合上报告拨通电话"。
-   - **轨迹交叉**：该角色的行动/想法是否与当前场景存在**时间、地点、人际关系的重叠**？
-     | 交叉类型 | 示例 | 叙事表现 |
-     |----------|------|----------|
-     | 人际交叉 | 柳如烟查方源，方源在凝冰身边 | 柳如烟收到线人消息，主动联系玩家 |
-     | 地点交叉 | 宁涵出租屋在你回酒店的路上 | 街角便利店偶遇 |
-     | 时间交叉 | 凝冰晚饭后等你到深夜 | 微信未读消息，前台留言 |
-     | 危机驱动 | 贺强催债升级，宁涵被逼搬家 | 宁涵主动拨你的电话 |
-   - **交叉判断三步法**：
-     1. 读 `角色行动`（她在做什么）→ 行动是否进入了需要外部介入的阶段？
-     2. 读 `内心想法`（她在想什么）→ 想法是否涉及玩家/在场角色/地点附近？
-     3. 读 `当前阶段` + 核心数值 → 是否接近阶段上限、即将触发突破事件？
-   - **决策输出**：对每个后台角色，判定为以下三类之一：
-     - **静默推进**：更新 `角色行动` 和 `内心想法`（通过 MVU 命令），不在叙事中展示。世界在后台转动。
-     - **背景提及**：在叙事中穿插 1-2 句环境细节（微信消息、新闻标题、路人对话、环境音），不打断当前场景。
-     - **主动介入**：该角色的行动直接打断当前场景（来电、敲门、偶遇、危机）。仅当交叉强度足够时使用。介入后该角色变为出场角色。
-   - **轮转规则**：每轮至少更新 2 个后台角色的行动/想法。按"上次更新距今最久"优先级排序，确保没有角色被长期遗忘。
-   - **开销**：stat_data 已在对话上下文中（无额外 I/O）。仅在决定"主动介入"时才 Grep 该角色的 `base_profile` 获取性格细节（~80 行）。
+文件结构为**静态前缀**（每轮相同，缓存命中）→ **动态后缀**（每轮变化）：
 
-   **D. 无结构卡回退**：
-   - 无 `.card_structure.json` 的旧卡：仍从 stat_data 扫后台角色行动/想法，按 C 部分的交叉判断流程执行。唯一区别是不查询阶段人设/事件库。
-3. **输入润色**：将用户原始输入解读为两个部分：
-   - **润色后叙事**：将用户简短/口语化的输入扩展为流畅的角色动作与对白。保留用户意图，不增不减。
-   - **场景快照**：当前时间、地点、在场人物及各自状态（一句话概括）。润色结果替代原始输入参与后续生成。
-4. **思考流程**：走完下方「生成前思考流程」五步（内部思考）。翻记忆时依赖对话历史中已有的既往轮次内容——**不要重新读取 chat_log.json 或 memory 文件**。如果对话因压缩导致上下文缺失，回读：`memory/project.md`（最新摘要）+ `memory/.worldbook_index.json`（世界书索引——始终需要）。reference.md 依然不直接回读——通过索引 + Grep 按需检索。
-5. 生成叙事回复 + summary + options
+| Section | 位置 | 说明 |
+|---------|------|------|
+| `WORLD_INDEX` | 静态前缀 | 全部世界书条目索引（关键词+摘要），按需 Grep 使用 |
+| `CARD_STRUCTURE` | 静态前缀 | 角色阶段/事件系统检查结果 |
+| `SETTINGS` | 静态前缀 | 风格/NSFW/字数目标 |
+| `INITVAR_PATHS` | 静态前缀 | 变量基线路径树（JSON Pointer 格式） |
+| `USER_INPUT` | 动态后缀 | 用户原始输入 |
+| `WORLD_MATCHES` | 动态后缀 | 变量驱动匹配的世界书条目**完整正文** |
+| `INPUT_MATCHES` | 动态后缀 | 用户输入关键词匹配的世界书条目**完整正文** |
+| `INJECTIONS` | 动态后缀 | 注入规则驱动的世界书条目**完整正文** |
+| `VARIABLE_PATHS` | 动态后缀 | 当前变量路径清单+值+上轮触及状态 |
+| `RECENT_MEMORY` | 动态后缀 | 最近剧情摘要 |
+| `RECENT_CHAT` | 动态后缀 | 最近 3 轮对话摘要 |
 
-5.1 **MVU 变量交叉检查（强制）**：
-   - 执行 `python "{ROOT}/skills/mvu_check.py" "<卡片文件夹>"` 获取变量清单
-   - 清单列出各顶层区域、路径数、样本值、上轮触及/未触及状态
-   - **通用规则**：叙事涉及的任何变量维度（金钱/库存/HP/MP/状态/位置/NPC属性等），必须有对应的 `<JSONPatch>` 操作命令
-   - 不得遗漏数值字段的增减（库存扣减、金钱收支、计数递增等）
-   - **后台 NPC 活性（强制）**：每轮至少对 2 个未出场角色的 `角色行动` 和 `内心想法` 进行更新（无需 Grep，直接基于 stat_data 中的当前状态做合理推演）。即使是"继续做同一件事"也要写 replace 操作——这确保世界在玩家视线之外持续运转。
-   - 每轮 4-12 个命令（视叙事复杂度）
+**步骤 3** — 走「生成前思考流程」五步 → 输入润色 → 生成正文 + MVU 命令：
+- **JSONPatch 路径必须严格匹配 VARIABLE_PATHS 中的路径结构**（尤其注意嵌套层级）
+- 每轮 4-12 个命令（视叙事复杂度）
 
-6. 按下方「输出格式」写入 `{ROOT}/skills/styles/response.txt`
-6.3 **质量检查**（合并 Token + 字数）：执行 `python "{ROOT}/skills/post_quality_check.py" "{ROOT}"` → 从 session transcript 采集 DeepSeek 真实 token 计数 + 统计 `<content>` 中文字数。若 exit code != 0（字数 < wordCount × 0.8）→ **重新生成本回复**（最多重试 3 次）。重试时使用括号强调：`(重要：本次回复必须达到 XXX 中文字，上版只有 YYY 字)`。扩充方向：增加感官细节、NPC 微反应、环境变化——禁止灌水重复。3 次仍不达标则保留最后一版，summary 末尾追加 `[字数未达标]`，继续执行。
-7. **交付前端**：执行 `python "{ROOT}/skills/handler.py" "<卡片文件夹绝对路径>"` → content.js 更新 → 前端 3 秒轮询拿到回复。handler.py 自动 /api/done 清除 pending。**用户已可看到回复，以下步骤异步后台完成，不阻塞前端。**
+**后台 NPC 活性检查**（步骤 3 的一部分，每轮强制）：
 
-8. **后台：更新剧情记忆**：执行 `python "{ROOT}/skills/write_memory.py" "<卡片文件夹>"` → 自动从 response.txt 提取摘要、从 chat_log.json 提取最近轮次，追加带日期的条目到 `memory/project.md` 并更新 `MEMORY.md` 索引。脚本处理机械部分（格式化/文件 I/O）。AI 验证生成结果是否正确，必要时手动编辑 project.md 补充叙事细节。feedback.md 和 user.md 仍由 AI 在需要时手动更新。
-9. **后台：检查剧情规划触发**：`generatedCount` 是 `PLAN_INTERVAL`（默认 8）的整数倍且 > 0？是 → 执行下方「剧情规划」流程；否 → 跳过
+从上一轮 stat_data 中扫描所有不在当前场景的角色，对每个后台角色：
+1. **时间推进**：该角色上轮在做什么？过了本轮的时间后自然进展到什么状态？
+2. **轨迹交叉**：其行动/想法是否与当前场景有时间、地点、人际的重叠？
+   - 人际交叉 → 主动联系玩家（来电/消息）
+   - 地点交叉 → 偶遇（街角/走廊/同一条船）
+   - 时间交叉 → 留言/未读消息/前台便条
+   - 危机驱动 → 该角色遇到麻烦，主动求助
+3. **决策**：每角色判为三类之一：
+   - **静默推进**：更新变量，不在叙事中展示
+   - **背景提及**：1-2 句环境细节（消息提醒/旁人提及/环境音）
+   - **主动介入**：直接打断场景（敲门/来电/偶遇），该角色变为出场角色
+
+每轮至少更新 2 个后台角色的 `角色行动` 和 `内心想法`（即使只是"继续做同一件事"也要写 replace）。轮转优先级按"上次更新距今最久"排序。
+
+**步骤 4** — 按「输出格式」写入 `{ROOT}/skills/styles/response.txt`
+
+### 后处理（AI 只需调用一次）
+
+**步骤 5** — 执行回合后处理管线：
+```
+python "{ROOT}/skills/round_deliver.py" "<卡片文件夹>" "{ROOT}"
+```
+此脚本自动完成：字数门禁检查 → token 采集 → 若字数不达标返回 `action: retry`（回到步骤 3 重试，最多 3 次）→ 若达标则 handler.py 交付前端 → write_memory.py 更新记忆 → 检查故事规划触发。
+
+若 `round_deliver.py` 返回 `story_plan_due: true` → 执行下方「剧情规划」流程。
 
 ## 输出格式（response.txt）
 
@@ -420,7 +411,7 @@ total: NNNN
 
 ## 剧情规划
 
-剧情规划是 Cron 正常流程的一个可选步骤，在每轮 handler.py 执行完毕后触发。
+剧情规划是每轮 `round_deliver.py` 执行完毕后，由 `story_plan_due` 字段触发的可选步骤。
 
 ### 触发条件
 
@@ -452,7 +443,7 @@ total: NNNN
    **关键原则：框架服务于故事，故事不服务于框架。如果分析结论与当前场景的直觉冲突，信任场景。**
 5. **写入 `memory/story_plan.md`**：按模板更新（YAML frontmatter + 当前定位/价值转换检查/未落地伏笔/下阶段方向/情感波浪线/节拍进度预估），包含分析结果和下阶段建议
 6. **更新 MEMORY.md 索引**：更新 story_plan.md 条目摘要
-7. **不中断监听循环**：规划完成后不额外输出，Monitor 继续正常检测 pending
+7. **不中断监听循环**：规划完成后继续 ScheduleWakeup 循环，等待下一轮用户输入
 
 ### 手动触发
 
