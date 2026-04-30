@@ -15,6 +15,15 @@
   --muted: #8a7a65;
   --input-bg: #fdfaf4;
   --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: 'STKaiti', 'SimSun', serif;
+  --font-body: 'SimSun', '宋体', serif;
+  --ink: #3a3028;
+  --line: #d4c9b0;
+  --soft: #ede6d8;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-full: 999px;
+  --color-ember: #d97706;
 }
 [data-theme="dark"] {
   --bg: #1b1b26;
@@ -25,6 +34,10 @@
   --text: #d4c5b9;
   --muted: #9a9aac;
   --input-bg: #1e1e2a;
+  --ink: #d4c5b9;
+  --line: #3a3a50;
+  --soft: #24242f;
+  --color-ember: #f59e0b;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 ::-webkit-scrollbar { width: 6px; }
@@ -72,7 +85,7 @@ body {
 /* ═══ CONTENT ═══ */
 #content-panel {
   flex: 1; overflow-y: auto; padding: 20px 24px;
-  display: flex; justify-content: center; align-items: flex-start;
+  display: flex; flex-direction: column; align-items: center;
   scroll-behavior: smooth;
   background: linear-gradient(180deg, #faf7f0 0%, #f5f0e8 100%);
 }
@@ -238,9 +251,13 @@ body {
 #toast.show { opacity: 1; }
 
 /* ═══ DARK MODE OVERRIDES ═══ */
+[data-theme="dark"] .turn-ai .turn-text {
+  color: #e8dcc8;
+}
 [data-theme="dark"] .turn-user .turn-text {
   background: #1e1e2a;
   border-left-color: #d4946a;
+  color: #c4bcaa;
 }
 [data-theme="dark"] #topbar .tag { color: #1b1b26; }
 [data-theme="dark"] .btn-submit { color: #1b1b26; }
@@ -253,6 +270,524 @@ body {
 [data-theme="dark"] .btn-turn-del:hover,
 [data-theme="dark"] .btn-turn-del.confirming { color: #fff; }
 [data-theme="dark"] #toast { color: #1b1b26; }
+
+/* ═══ MVU Variable Tree ═══ */
+#sb-mvu-vars {
+  max-height: 300px; overflow-y: auto;
+  font-family: "Cascadia Code", "Consolas", "Monaco", monospace;
+  font-size: 0.78em; line-height: 1.6;
+}
+.mvu-entry { padding: 1px 0 1px 8px; }
+.mvu-key { color: var(--muted); }
+.mvu-str { color: var(--accent2); }
+.mvu-num { color: #b0624a; }
+.mvu-bool { color: #5a8a9a; font-weight: 600; }
+.mvu-null { color: var(--muted); font-style: italic; }
+.mvu-empty { color: var(--muted); font-style: italic; }
+#sb-mvu-vars details { margin-left: 4px; }
+#sb-mvu-vars summary {
+  cursor: pointer; color: var(--accent);
+  outline: none; font-size: 0.9em;
+}
+#sb-mvu-vars summary:hover { opacity: 0.8; }
+.mvu-delta {
+  animation: mvu-flash 2s ease-out;
+  border-radius: 2px;
+}
+@keyframes mvu-flash {
+  0% { background: rgba(176, 106, 61, 0.35); }
+  100% { background: transparent; }
+}
+[data-theme="dark"] @keyframes mvu-flash {
+  0% { background: rgba(212, 148, 106, 0.3); }
+  100% { background: transparent; }
+}
+
+/* ═══ BEAUTIFY DASHBOARD (card's 状态栏) ═══ */
+#sb-beautify {
+  font-family: var(--font-body);
+  font-size: 0.78em; line-height: 1.5;
+  color: var(--text);
+}
+.beautify-dashboard {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.beautify-header {
+  padding: 10px 12px 6px;
+  background: var(--soft);
+  border-bottom: 1px solid var(--line);
+}
+.beautify-header-kicker {
+  font-size: 0.62rem; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--muted);
+}
+.beautify-header-title {
+  font-family: var(--font-display);
+  font-size: 1rem; font-weight: 600;
+  color: var(--text); margin: 2px 0 6px;
+}
+.beautify-meta-chips {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.beautify-meta-chip {
+  font-size: 0.68rem; color: var(--muted);
+  background: var(--ink); padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--line);
+}
+.beautify-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 1px; background: var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.beautify-tab-btn {
+  background: var(--soft); border: none;
+  color: var(--muted); padding: 6px 4px; cursor: pointer;
+  font-size: 11px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-body);
+  transition: background 0.15s, color 0.15s;
+}
+.beautify-tab-btn.active {
+  background: var(--surface); color: var(--text);
+  font-weight: 600; border-bottom: 2px solid var(--color-ember);
+}
+.beautify-tab-btn:hover { color: var(--text); }
+.beautify-body {
+  padding: 8px;
+}
+.beautify-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+}
+.beautify-info-card {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.beautify-info-label {
+  font-size: 0.65rem; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--muted);
+  margin-bottom: 3px;
+}
+.beautify-info-value {
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--text);
+}
+.beautify-partner-header {
+  display: flex; gap: 6px; align-items: center;
+  flex-wrap: wrap; margin-bottom: 8px;
+}
+.beautify-partner-name {
+  font-family: var(--font-display); font-size: 0.95rem;
+  font-weight: 600; color: var(--text);
+}
+.beautify-partner-chip {
+  font-size: 0.68rem; color: var(--muted);
+  background: var(--soft); padding: 1px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--line);
+}
+.beautify-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px; margin-bottom: 8px;
+}
+.beautify-detail-item {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.beautify-detail-label {
+  font-size: 0.62rem; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--muted);
+}
+.beautify-detail-value {
+  font-size: 0.78rem; color: var(--text);
+  margin-top: 2px;
+}
+.beautify-jung-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 4px; margin-top: 6px;
+}
+.beautify-jung-item {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 5px 6px; text-align: center;
+}
+.beautify-jung-role {
+  font-size: 0.6rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.beautify-jung-func {
+  font-size: 0.9rem; font-weight: 700;
+  color: var(--color-ember);
+  font-family: var(--font-display);
+}
+.beautify-kink-text {
+  font-size: 0.82rem; color: var(--text);
+  line-height: 1.6; padding: 4px 0;
+}
+.beautify-empty {
+  color: var(--muted); font-style: italic;
+  padding: 8px; text-align: center;
+}
+.beautify-highlight { color: var(--color-ember); font-weight: 600; }
+.beautify-tag {
+  display: inline-block;
+  background: var(--soft); border: 1px solid var(--line);
+  padding: 1px 5px; border-radius: var(--radius-full);
+  margin: 1px 2px; font-size: 10px;
+}
+.beautify-section { margin-bottom: 2px; }
+.beautify-section-title {
+  color: var(--color-ember); font-weight: bold;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 3px; padding-bottom: 2px;
+  font-size: 13px; cursor: pointer;
+}
+.beautify-flat-panel {
+  padding: 4px 0;
+}
+.beautify-npc-tabs {
+  display: flex; gap: 1px; flex-wrap: wrap;
+}
+.beautify-npc-panel {
+  padding: 4px 0;
+}
+.beautify-npc-details { display: flex; flex-direction: column; gap: 2px; }
+.beautify-npc-details .data-row { margin: 1px 0; }
+.beautify-sub {
+  margin: 1px 0;
+}
+.beautify-sub summary {
+  cursor: pointer; font-size: 11px;
+  color: var(--muted);
+}
+.beautify-sub summary:hover { color: var(--text); }
+.data-row {
+  display: flex; align-items: baseline; gap: 4px;
+  margin: 2px 0; padding: 1px 0;
+  border-bottom: 1px dotted rgba(90, 69, 48, 0.3);
+  font-size: 12px;
+}
+.data-row .k { color: var(--muted); font-size: 11px; min-width: 60px; flex-shrink: 0; }
+
+/* ═══ INLINE VARIABLE CARDS ═══ */
+.turn-vars {
+  margin: 6px 0 2px 0;
+  display: flex; flex-wrap: wrap; gap: 5px;
+  font-family: var(--font-ui);
+}
+.tv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  min-width: 140px;
+  flex: 1 1 auto;
+  max-width: 260px;
+}
+.tv-card.delta {
+  border-left: 3px solid var(--color-ember);
+  background: rgba(217, 119, 6, 0.04);
+}
+.tv-card-header {
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 3px;
+  font-size: 0.78em; font-weight: 600;
+  color: var(--accent);
+}
+.tv-card-header .tv-name { flex: 1; }
+.tv-portrait-thumb {
+  width: 26px; height: 26px; border-radius: 50%;
+  object-fit: cover; border: 1px solid var(--border);
+  cursor: pointer; flex-shrink: 0;
+}
+.tv-portrait-thumb:hover { border-color: var(--accent); }
+.tv-stat-row {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.68em; padding: 1px 0;
+}
+.tv-stat-label { color: var(--muted); min-width: 38px; flex-shrink: 0; }
+.tv-stat-value { color: var(--text); font-weight: 600; min-width: 20px; text-align: right; font-size: 0.9em; }
+.tv-stat-bar-bg {
+  flex: 1; height: 3px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.tv-stat-bar-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.5s ease;
+}
+.tv-delta-item {
+  font-size: 0.68em; padding: 1px 0;
+  color: var(--text);
+}
+.tv-delta-item .old { color: var(--muted); text-decoration: line-through; margin-right: 2px; }
+.tv-delta-item .new { color: var(--color-ember); font-weight: 600; }
+.tv-card-compact {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 2px 7px;
+  font-size: 0.68em; cursor: default;
+}
+.tv-card-compact .name { color: var(--muted); }
+.tv-card-compact .val { color: var(--text); font-weight: 600; }
+
+/* ═══ PORTRAIT THUMBNAILS ═══ */
+.beautify-portrait-thumb {
+  width: 48px; height: 64px; object-fit: cover;
+  border-radius: 3px; border: 1px solid var(--border);
+  cursor: pointer; transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.beautify-portrait-thumb:hover { transform: scale(1.08); border-color: var(--accent); }
+
+/* ═══ INLINE BEAUTIFY PANEL (server-rendered, below chat, phone-theme) ═══ */
+#beautify-container {
+  position: sticky; top: 0; z-index: 5;
+  max-width: 860px; width: 100%;
+}
+.beautify-panel-inline {
+  margin: 20px 0 0 0;
+  padding: 0;
+  max-width: 860px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.beautify-panel-inline .beautify-panel-overlay {
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+[data-theme="dark"] .beautify-panel-inline .beautify-panel-overlay {
+  background: rgba(0,0,0,0.65);
+}
+.beautify-panel-inline .beautify-dashboard {
+  position: relative;
+  z-index: 1;
+}
+/* Header */
+.beautify-panel-inline .beautify-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.15);
+}
+.beautify-panel-inline .beautify-user-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background-size: cover; background-position: center;
+  border: 2px solid rgba(255,255,255,0.25);
+  flex-shrink: 0;
+}
+.beautify-panel-inline .beautify-header-text {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.beautify-panel-inline .beautify-header-title {
+  font-weight: 700; font-size: 0.95em; color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.beautify-panel-inline .beautify-header-sub {
+  font-size: 0.7em; color: rgba(255,255,255,0.65);
+}
+/* Tabs */
+.beautify-panel-inline .beautify-tabs {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.12);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.beautify-panel-inline .beautify-tab-btn {
+  display: flex; align-items: center; gap: 5px;
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.73em;
+  transition: background 0.15s, color 0.15s;
+}
+.beautify-panel-inline .beautify-tab-btn:hover {
+  color: #fff; background: rgba(255,255,255,0.14);
+}
+.beautify-panel-inline .beautify-tab-btn.active {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-weight: 600;
+}
+.beautify-panel-inline .beautify-tab-avatar {
+  display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+  background-size: cover; background-position: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+/* Tab content */
+.beautify-panel-inline .beautify-tab-content {
+  padding: 12px 14px;
+  color: rgba(255,255,255,0.9);
+}
+/* Character card */
+.beautify-panel-inline .beautify-char-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-bottom: 10px;
+}
+.beautify-panel-inline .beautify-char-avatar-wrap {
+  flex-shrink: 0;
+}
+.beautify-panel-inline .beautify-char-avatar {
+  width: 72px; height: 72px; border-radius: 12px;
+  background-size: cover; background-position: center top;
+  border: 2px solid rgba(255,255,255,0.25);
+  cursor: pointer; transition: transform 0.15s;
+}
+.beautify-panel-inline .beautify-char-avatar:hover { transform: scale(1.05); }
+.beautify-panel-inline .beautify-char-info {
+  flex: 1; min-width: 0;
+}
+.beautify-panel-inline .beautify-char-name {
+  font-weight: 700; font-size: 1.05em; color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+  margin-bottom: 4px;
+}
+.beautify-panel-inline .beautify-char-condition {
+  font-size: 0.72em; color: rgba(255,255,255,0.6);
+  line-height: 1.45; margin-bottom: 6px;
+}
+.beautify-panel-inline .beautify-stat-bars {
+  display: flex; flex-direction: column; gap: 2px;
+  max-width: 340px;
+}
+/* Badges */
+.beautify-panel-inline .beautify-badges {
+  display: flex; gap: 4px; margin-top: 4px;
+}
+.beautify-panel-inline .beautify-badge {
+  font-size: 0.63em; padding: 1px 7px; border-radius: 10px;
+  font-weight: 600; letter-spacing: 0.02em;
+}
+.beautify-panel-inline .badge-pregnant {
+  background: rgba(176,98,74,0.3); color: #e8a090;
+}
+.beautify-panel-inline .badge-stage {
+  background: rgba(90,138,154,0.3); color: #a0d0dd;
+}
+/* Sub-grid: 着装 + 身体 side by side */
+.beautify-panel-inline .beautify-sub-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.beautify-panel-inline .beautify-sub-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.beautify-panel-inline .beautify-sub-title {
+  font-weight: 600; font-size: 0.72em;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.beautify-panel-inline .beautify-sub-row {
+  display: flex; gap: 6px; font-size: 0.7em;
+  padding: 2px 0; line-height: 1.4;
+}
+.beautify-panel-inline .beautify-sub-key {
+  color: rgba(255,255,255,0.4);
+  min-width: 52px; flex-shrink: 0;
+}
+.beautify-panel-inline .beautify-sub-val {
+  color: rgba(255,255,255,0.75);
+}
+/* Delta changes */
+.beautify-panel-inline .beautify-delta {
+  margin-top: 8px; padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.beautify-panel-inline .beautify-delta-item {
+  font-size: 0.66em; padding: 1px 0;
+  color: rgba(255,255,255,0.55);
+}
+.beautify-panel-inline .beautify-delta-key {
+  color: rgba(255,255,255,0.35);
+  margin-right: 4px;
+}
+.beautify-panel-inline .beautify-delta-old {
+  text-decoration: line-through;
+  color: rgba(255,255,255,0.3);
+  margin-right: 3px;
+}
+.beautify-panel-inline .beautify-delta-new {
+  color: #f0b878; font-weight: 600;
+}
+/* World tab info grid */
+.beautify-panel-inline .beautify-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 4px;
+}
+.beautify-panel-inline .beautify-info-card {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.75em;
+}
+.beautify-panel-inline .beautify-info-label {
+  color: rgba(255,255,255,0.45);
+  min-width: 48px; font-size: 0.9em;
+}
+.beautify-panel-inline .beautify-info-value {
+  color: rgba(255,255,255,0.85); font-weight: 500;
+}
+/* collapsible sub-sections (non-standard dicts) */
+.beautify-panel-inline .beautify-sub {
+  margin: 3px 0;
+  font-size: 0.72em;
+}
+.beautify-panel-inline .beautify-sub summary {
+  cursor: pointer;
+  color: rgba(255,255,255,0.45);
+  padding: 2px 0;
+}
+.beautify-panel-inline .beautify-sub summary:hover { color: rgba(255,255,255,0.7); }
+/* Stat bars (shared with sidebar, adapted for dark bg) */
+.beautify-panel-inline .tv-stat-row {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.7em; padding: 1px 0;
+}
+.beautify-panel-inline .tv-stat-label {
+  color: rgba(255,255,255,0.5); min-width: 44px; flex-shrink: 0;
+}
+.beautify-panel-inline .tv-stat-value {
+  color: rgba(255,255,255,0.85); font-weight: 600;
+  min-width: 24px; text-align: right;
+}
+.beautify-panel-inline .tv-stat-bar-bg {
+  flex: 1; height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px; overflow: hidden;
+}
+.beautify-panel-inline .tv-stat-bar-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.5s ease;
+}
 </style>
 </head>
 <body>
@@ -283,6 +818,7 @@ body {
 <div id="main">
   <div id="content-panel">
     <div id="doc">等待生成...</div>
+    <div id="beautify-container"></div>
   </div>
 
   <div id="sidebar">
@@ -332,9 +868,13 @@ body {
       <h4>📌 当前目标</h4>
       <div style="color:var(--accent2);" id="sb-quest">—</div>
     </div>
-    <div class="side-card" id="stats-card" style="display:none;">
-      <h4>📊 角色状态</h4>
-      <div id="sb-stats"></div>
+    <div class="side-card" id="beautify-card" style="display:none;">
+      <h4>📊 状态面板</h4>
+      <div id="sb-beautify"></div>
+    </div>
+    <div class="side-card" id="mvu-card" style="display:none;">
+      <h4>🗃️ 变量</h4>
+      <div id="sb-mvu-vars"></div>
     </div>
     <div class="side-card" id="npcs-card" style="display:none;">
       <h4>👥 场景人物</h4>
@@ -362,7 +902,7 @@ body {
   </div>
   <div class="meta-row">
     <span>你的角色名:</span>
-    <input id="char-name" placeholder="可选" value="" oninput="render()">
+    <input id="char-name" placeholder="可选" value="" oninput="onPlayerNameChange();">
     <span style="flex:1;"></span>
     <span id="last-action" style="font-style:italic;"></span>
   </div>
@@ -370,11 +910,21 @@ body {
 
 <div id="toast">✓ 已复制到剪贴板，请粘贴到 Claude Code</div>
 
+<!-- Portrait zoom modal -->
+<div id="beautify-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:9999;justify-content:center;align-items:center;cursor:zoom-out;" onclick="this.style.display='none'">
+  <img id="beautify-modal-img" src="" alt="立绘放大" style="max-width:95%;max-height:95vh;border:2px solid #8b6b4a;box-shadow:0 0 20px #000;border-radius:4px;object-fit:contain;">
+</div>
+
+<script src="_st_shims.js?v=2"></script>
 <script>
 // ═══ Dynamic script reloader (no page flash) ═══
 let pollTimer = null;
 let lastStateMtime = 0;
 let lastContentMtime = 0;
+let _prevContentHtml = '';  // cache to avoid spurious innerHTML resets
+let _prevBeautifyHtml = '';  // separate cache for beautify panel
+
+var _consecutiveFailures = 0;
 
 function reloadData() {
   // Reload state.js via dynamic script
@@ -385,24 +935,26 @@ function reloadData() {
   s.id = '_state_js';
   s.src = 'state.js?v=' + ts;
   s.onload = () => {
+    _consecutiveFailures = 0;
     if (window.STATE) lastStateMtime = ts;
     const oldContent = document.getElementById('_content_js');
     if (oldContent) oldContent.remove();
     const c = document.createElement('script');
     c.id = '_content_js';
     c.src = 'content.js?v=' + ts;
-    c.onload = () => { if (window.CONTENT_HTML !== undefined) lastContentMtime = ts; render(); };
-    c.onerror = () => render();
+    c.onload = () => { _consecutiveFailures = 0; if (window.CONTENT_HTML !== undefined) lastContentMtime = ts; render(); };
+    c.onerror = () => { _consecutiveFailures++; if (_consecutiveFailures >= 3) showError('内容加载失败，请刷新页面'); render(); };
     document.head.appendChild(c);
   };
   s.onerror = () => {
+    _consecutiveFailures++;
     const oldContent = document.getElementById('_content_js');
     if (oldContent) oldContent.remove();
     const c = document.createElement('script');
     c.id = '_content_js';
     c.src = 'content.js?v=' + ts;
-    c.onload = () => { if (window.CONTENT_HTML !== undefined) lastContentMtime = ts; render(); };
-    c.onerror = () => render();
+    c.onload = () => { _consecutiveFailures = 0; if (window.CONTENT_HTML !== undefined) lastContentMtime = ts; render(); };
+    c.onerror = () => { _consecutiveFailures++; if (_consecutiveFailures >= 3) showError('内容加载失败，请刷新页面'); render(); };
     document.head.appendChild(c);
   };
   document.head.appendChild(s);
@@ -452,14 +1004,124 @@ function userName() {
   return v || '{{user}}';
 }
 
+function syncPlayerName() {
+  // Sync #char-name from MVU variables (initvar) on first load
+  var vars = window.MVU_VARIABLES;
+  if (!vars) return;
+  var playerName = (vars['玩家'] && vars['玩家']['姓名']) || '';
+  if (!playerName || playerName === '{{user}}') return;
+  var input = document.getElementById('char-name');
+  if (input && !input.dataset.synced && (!input.value || input.value === '{{user}}')) {
+    input.value = playerName;
+    input.dataset.synced = '1';
+  }
+}
+
+function onPlayerNameChange() {
+  var input = document.getElementById('char-name');
+  var vars = window.MVU_VARIABLES;
+  if (!vars || !vars['玩家']) return;
+  var newName = input.value.trim();
+  if (newName && newName !== '{{user}}') {
+    vars['玩家']['姓名'] = newName;
+  }
+}
+
 function replaceUser(s) {
   const name = userName();
   if (name === '{{user}}' || !s) return s;
   return s.split('{{user}}').join(name);
 }
 
+function applyBeautifyCSS() {
+  var beautifyData = window.BEAUTIFY_DATA || {};
+  var cssSource = beautifyData.panel_css || beautifyData.panel_inline_css || '';
+  var oldStyle = document.getElementById('_beautify_css');
+  if (oldStyle) oldStyle.remove();
+  if (cssSource) {
+    var style = document.createElement('style');
+    style.id = '_beautify_css';
+    style.textContent = cssSource;
+    document.head.appendChild(style);
+  }
+}
+
+// ═══ Client-side macro resolver — mirrors MVU engine display-time resolution ═══
+// In the real MVU pipeline, {{format_message_variable::stat_data.XXX}} macros
+// are resolved dynamically at render time against the live stat_data tree.
+// We replicate that here so the beautify panel always reflects current state.
+function resolveBeautifyMacros(html) {
+  if (!html || html.indexOf('{{') < 0) return html;
+  var vars = window.MVU_VARIABLES || {};
+  var statData = vars.stat_data || vars;
+
+  function _lookup(pathStr) {
+    // Strip stat_data. prefix — window.MVU_VARIABLES is the stat_data root
+    var p = pathStr;
+    if (p.indexOf('stat_data.') === 0) p = p.slice(10);
+    var keys = p.split('.');
+    var cur = statData;
+    for (var i = 0; i < keys.length; i++) {
+      if (cur == null || typeof cur !== 'object') return null;
+      cur = cur[keys[i]];
+    }
+    return cur;
+  }
+
+  function _format(v) {
+    if (v === null || v === undefined) return '(未定义)';
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+    // Nested objects: render as compact key: value lines
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      var lines = [];
+      var keys = Object.keys(v);
+      for (var ki = 0; ki < keys.length; ki++) {
+        var kv = v[keys[ki]];
+        if (kv !== null && typeof kv === 'object') {
+          lines.push(keys[ki] + ': ' + JSON.stringify(kv));
+        } else {
+          lines.push(keys[ki] + ': ' + String(kv !== undefined ? kv : '—'));
+        }
+      }
+      return lines.join(', ');
+    }
+    if (Array.isArray(v)) {
+      return v.map(function(item) {
+        return typeof item === 'object' ? JSON.stringify(item) : String(item);
+      }).join(', ');
+    }
+    return String(v);
+  }
+
+  // {{format_message_variable::stat_data.XXX}} → formatted value
+  html = html.replace(/\{\{format_message_variable::stat_data\.([^}]+)\}\}/g, function(_, path) {
+    return _format(_lookup(path));
+  });
+
+  // {{format_message_variable::XXX}} without stat_data prefix → from root
+  html = html.replace(/\{\{format_message_variable::([^}]+)\}\}/g, function(_, path) {
+    return _format(_lookup(path));
+  });
+
+  // {{getvar::stat_data.XXX}} → scalar value (bare, no formatting)
+  html = html.replace(/\{\{getvar::stat_data\.([^}]+)\}\}/g, function(_, path) {
+    var v = _lookup(path);
+    return (v !== null && v !== undefined) ? String(v) : '(未定义)';
+  });
+
+  // {{getvar::XXX}} without stat_data prefix
+  html = html.replace(/\{\{getvar::([^}]+)\}\}/g, function(_, path) {
+    var v = _lookup(path);
+    return (v !== null && v !== undefined) ? String(v) : '(未定义)';
+  });
+
+  return html;
+}
+
 function render() {
   if (!window.STATE) return;
+
+  syncPlayerName();
   const S = window.STATE;
   document.title = (S.world || 'RP') + ' — ' + (S.stage || '');
 
@@ -470,12 +1132,37 @@ function render() {
   setText('tb-location', S.location || '—');
   setText('tb-count', '已生成: ' + (S.generatedCount || 0));
 
-  // Content
+  // Content — only replace DOM when the source string actually
+  // changed.  Comparing against live innerHTML would fire every poll
+  // because initApp() mutates the DOM (flip-card backs, etc.), which
+  // would destroy card state and re-run scripts unnecessarily.
   const contentEl = document.getElementById('doc');
   let newContent = window.CONTENT_HTML || '<div style="padding:60px;text-align:center;color:var(--muted);">等待生成内容...</div>';
   newContent = replaceUser(newContent);
-  if (contentEl.innerHTML !== newContent) {
+  // Apply card author's markdownOnly regex scripts (faithful to ST pipeline)
+  var regexScripts = window.REGEX_SCRIPTS || [];
+  for (var rx = 0; rx < regexScripts.length; rx++) {
+    var rs = regexScripts[rx];
+    if (!rs.markdownOnly) continue;
+    try {
+      var re = new RegExp(rs.find, rs.flags || '');
+      newContent = newContent.replace(re, rs.replace || '');
+    } catch (e) { /* bad regex from card author — skip */ }
+  }
+  if (_prevContentHtml !== newContent) {
+    _prevContentHtml = newContent;
     contentEl.innerHTML = newContent;
+    // Re-execute embedded <script> tags (innerHTML doesn't run them).
+    // The _st_shims.js globals are already loaded, so card-author
+    // beautify scripts find their expected ST/MVU APIs.
+    var embScripts = contentEl.querySelectorAll('script');
+    for (var si = 0; si < embScripts.length; si++) {
+      var oldS = embScripts[si];
+      var newS = document.createElement('script');
+      if (oldS.textContent) newS.textContent = oldS.textContent;
+      if (oldS.src) newS.src = oldS.src;
+      oldS.parentNode.replaceChild(newS, oldS);
+    }
     // Only auto-scroll if user is already near the bottom
     const panel = document.getElementById('content-panel');
     if (panel) {
@@ -483,6 +1170,27 @@ function render() {
       if (distToBottom < 200) {
         setTimeout(() => { panel.scrollTop = panel.scrollHeight; }, 80);
       }
+    }
+  }
+
+  // Beautify panel — rendered independently of narrative content.
+  // Macros ({{format_message_variable::stat_data.XXX}}) are resolved
+  // client-side against window.MVU_VARIABLES at display time, mirroring
+  // the real MVU pipeline. Resolution runs every poll cycle so variable
+  // updates are reflected immediately without a server round-trip.
+  const beautifyEl = document.getElementById('beautify-container');
+  let rawBeautify = window.BEAUTIFY_HTML || '';
+  let newBeautify = resolveBeautifyMacros(rawBeautify);
+  if (_prevBeautifyHtml !== newBeautify) {
+    _prevBeautifyHtml = newBeautify;
+    beautifyEl.innerHTML = newBeautify;
+    var embScriptsB = beautifyEl.querySelectorAll('script');
+    for (var sj = 0; sj < embScriptsB.length; sj++) {
+      var oldSB = embScriptsB[sj];
+      var newSB = document.createElement('script');
+      if (oldSB.textContent) newSB.textContent = oldSB.textContent;
+      if (oldSB.src) newSB.src = oldSB.src;
+      oldSB.parentNode.replaceChild(newSB, oldSB);
     }
   }
 
@@ -509,26 +1217,6 @@ function render() {
   }
 
 
-  // Stats
-  const statsCard = document.getElementById('stats-card');
-  if (S.player && (S.hpMax > 0 || S.mpMax > 0)) {
-    statsCard.style.display = '';
-    const hpPct = (S.hp / (S.hpMax || 1) * 100).toFixed(0);
-    const mpPct = (S.mp / (S.mpMax || 1) * 100).toFixed(0);
-    const expPct = S.expMax ? (S.exp / S.expMax * 100).toFixed(0) : 0;
-    setHtml('sb-stats',
-      `<div class="kv"><span>${replaceUser(S.player) || '角色'}${S.ed ? ' (已ED)' : ''}</span></div>` +
-      `<div class="kv"><span class="k">HP</span><span>${S.hp}/${S.hpMax}</span></div>` +
-      `<div class="stat-bar-wrap"><div class="stat-bar stat-hp" style="width:${hpPct}%"></div></div>` +
-      `<div class="kv"><span class="k">MP</span><span>${S.mp}/${S.mpMax}</span></div>` +
-      `<div class="stat-bar-wrap"><div class="stat-bar stat-mp" style="width:${mpPct}%"></div></div>` +
-      `<div class="kv"><span class="k">EXP</span><span>${S.exp}/${S.expMax}</span></div>` +
-      `<div class="stat-bar-wrap"><div class="stat-bar stat-exp" style="width:${expPct}%"></div></div>`
-    );
-  } else {
-    statsCard.style.display = 'none';
-  }
-
   // NPCs
   const npcsCard = document.getElementById('npcs-card');
   if (S.npcs && S.npcs.length > 0) {
@@ -539,6 +1227,12 @@ function render() {
   } else {
     npcsCard.style.display = 'none';
   }
+
+  // MVU Variables
+  renderMvuVars();
+
+  // Beautify Dashboard
+  renderBeautify();
 
   // Inject per-turn delete buttons
   injectTurnButtons();
@@ -551,12 +1245,21 @@ function render() {
 
   // Openings switcher visibility
   updateOpeningsCard(S);
+
+  // Notify beautify panel of fresh variable data.
+  // Matches real MVU lifecycle: mag_variable_update_ended fires after
+  // all updates for the reply are complete.  The card-author beautify
+  // script registered eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, renderData)
+  // inside initApp(), so this triggers a data refresh without DOM reset.
+  if (window.eventEmit && window.Mvu) {
+    window.eventEmit(window.Mvu.events.VARIABLE_UPDATE_ENDED);
+  }
 }
 
 function updateOpeningsCard(S) {
   const card = document.getElementById('openings-card');
   const sel = document.getElementById('set-opening');
-  if (S.generatedCount === 1 && sel.options.length > 1) {
+  if (S.generatedCount >= 1 && sel.options.length > 1) {
     card.style.display = '';
   } else {
     card.style.display = 'none';
@@ -878,9 +1581,339 @@ function updateTokenCount() {
   }
 }
 
+// ═══ MVU Variables Panel ═══
+
+function renderMvuVars() {
+  // MVU variable tree now rendered server-side in inline beautify panel
+  var card = document.getElementById('mvu-card');
+  if (card) card.style.display = 'none';
+}
+
+function _renderMvuTree(data, delta, pathPrefix) {
+  if (data === null || data === undefined) return '<span class="mvu-null">null</span>';
+
+  var type = Array.isArray(data) ? 'array' : typeof data;
+
+  if (type === 'string' || type === 'number' || type === 'boolean') {
+    var valClass = type === 'string' ? 'mvu-str' : (type === 'number' ? 'mvu-num' : 'mvu-bool');
+    var fullPath = pathPrefix;
+    var isDelta = delta.hasOwnProperty(fullPath) || delta.hasOwnProperty(fullPath.replace(/^\./, ''));
+    return '<span class="' + valClass + (isDelta ? ' mvu-delta' : '') + '">' + String(data) + '</span>';
+  }
+
+  if (type === 'object') {
+    var keys = Object.keys(data);
+    if (keys.length === 0) return '<span class="mvu-empty">(empty)</span>';
+
+    var html = '<details' + (keys.length <= 3 ? ' open' : '') + '><summary>' + (Array.isArray(data) ? '[' + keys.length + ']' : '{' + keys.length + ' keys}') + '</summary>';
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (k.indexOf('$') === 0) continue; // Skip $meta / $internal
+      var v = data[k];
+      var childPath = pathPrefix + '.' + k;
+      var entryClass = '';
+      if (delta) {
+        for (var dk in delta) {
+          if (dk === childPath || dk.indexOf(childPath + '.') === 0 || dk.indexOf(childPath + '[') === 0) {
+            entryClass = ' mvu-delta';
+            break;
+          }
+        }
+      }
+      html += '<div class="mvu-entry' + entryClass + '"><span class="mvu-key">' + k + ':</span> ';
+      if (v !== null && (typeof v === 'object')) {
+        html += _renderMvuTree(v, delta, childPath);
+      } else {
+        html += _renderMvuTree(v, delta, childPath);
+      }
+      html += '</div>';
+    }
+    html += '</details>';
+    return html;
+  }
+
+  return '<span>' + String(data) + '</span>';
+}
+
 function formatNum(n) {
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
   return String(n);
+}
+
+// ═══ Generic Status Panel (driven by card's initvar) ═══
+// Detects initvar structure and renders appropriately:
+//   - Tabbed sections for objects containing similar sub-objects (e.g., NPCs)
+//   - Key-value lists for flat/simple objects
+//   - Portraits if BEAUTIFY_PORTRAITS is populated for matching keys
+
+function renderBeautify() {
+  // Beautify dashboard now rendered server-side in inline panel
+  var card = document.getElementById('beautify-card');
+  if (card) card.style.display = 'none';
+  return;
+
+  // ── Discover tabs from variable structure ──
+  var topKeys = Object.keys(vars);
+  // Group: flat objects/scalars → "概况" tab; objects-with-subobjects → individual tabs
+  var overviewItems = [];
+  var subTabs = []; // [{key, subKeys, isRecord: bool}]
+  for (var i = 0; i < topKeys.length; i++) {
+    var k = topKeys[i];
+    var v = vars[k];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      var childKeys = Object.keys(v);
+      var hasNestedObj = false;
+      for (var ci = 0; ci < childKeys.length; ci++) {
+        var cv = v[childKeys[ci]];
+        if (cv && typeof cv === 'object' && !Array.isArray(cv)) { hasNestedObj = true; break; }
+      }
+      if (hasNestedObj && childKeys.length > 0) {
+        // Object containing sub-objects → individual tabs per sub-key
+        for (var ci2 = 0; ci2 < childKeys.length; ci2++) {
+          subTabs.push({topKey: k, subKey: childKeys[ci2], parent: k});
+        }
+      } else {
+        // Flat object (or empty record) → overview + its own tab
+        subTabs.push({topKey: k, subKey: null, parent: null});
+      }
+    } else {
+      // Scalar/array at top level → overview
+      overviewItems.push(k);
+    }
+  }
+
+  // Active tab persistence
+  if (!window._beautifyActiveTab) window._beautifyActiveTab = '_overview';
+  var activeTab = window._beautifyActiveTab;
+  // Validate active tab still exists
+  var validTabs = ['_overview'];
+  for (var ti = 0; ti < subTabs.length; ti++) {
+    validTabs.push(subTabs[ti].topKey + (subTabs[ti].subKey ? '|||' + subTabs[ti].subKey : ''));
+  }
+  if (validTabs.indexOf(activeTab) < 0) {
+    activeTab = '_overview';
+    window._beautifyActiveTab = '_overview';
+  }
+
+  var S = window.STATE || {};
+  var beautifyData = window.BEAUTIFY_DATA || {};
+
+  // ── Dynamic title ──
+  var panelTitle = beautifyData.panel_title || (S.world ? S.world + ' · 状态栏' : 'MVU · 状态栏');
+  var panelKicker = beautifyData.panel_kicker || '变量追踪 · MVU';
+
+  var html = '<div class="beautify-dashboard">';
+
+  // ── Header ──
+  html += '<div class="beautify-header">';
+  html += '<div class="beautify-header-kicker">' + escHtml(panelKicker) + '</div>';
+  html += '<div class="beautify-header-title">' + escHtml(panelTitle) + '</div>';
+  html += '<div class="beautify-meta-chips">';
+  html += '<span class="beautify-meta-chip">' + escHtml(S.time || '—') + '</span>';
+  html += '<span class="beautify-meta-chip">' + escHtml(S.world || '—') + '</span>';
+  html += '</div></div>';
+
+  // ── Tabs ──
+  html += '<div class="beautify-tabs">';
+  html += '<div class="beautify-tab-btn' + (activeTab === '_overview' ? ' active' : '') + '" data-tab="_overview">概况</div>';
+  for (var ti2 = 0; ti2 < subTabs.length; ti2++) {
+    var st = subTabs[ti2];
+    var tabId = st.topKey + (st.subKey ? '|||' + st.subKey : '');
+    var tabLabel = st.subKey || st.topKey;
+    html += '<div class="beautify-tab-btn' + (activeTab === tabId ? ' active' : '') + '" data-tab="' + escHtml(tabId) + '">' + escHtml(tabLabel) + '</div>';
+  }
+  html += '</div>';
+
+  // ── Body ──
+  html += '<div class="beautify-body">';
+
+  if (activeTab === '_overview') {
+    // Overview: show all top-level scalar values + flat object summaries
+    html += '<div class="beautify-info-grid">';
+    for (var oi = 0; oi < topKeys.length; oi++) {
+      var ok = topKeys[oi];
+      var ov = vars[ok];
+      if (ov === null || ov === undefined) {
+        html += _biCard(ok, '—');
+      } else if (typeof ov === 'object' && !Array.isArray(ov)) {
+        var childCount = Object.keys(ov).length;
+        if (childCount === 0) {
+          html += _biCard(ok, '(空)');
+        } else {
+          // Show first few keys as summary
+          var previewKeys = Object.keys(ov).slice(0, 3);
+          var preview = previewKeys.map(function(pk) { return pk + ': ' + _fmtScalar(ov[pk]); }).join(' / ');
+          if (childCount > 3) preview += ' ... (+' + (childCount - 3) + ')';
+          html += _biCard(ok, preview);
+        }
+      } else if (Array.isArray(ov)) {
+        html += _biCard(ok, '[' + ov.length + ' 项]');
+      } else {
+        html += _biCard(ok, _fmtScalar(ov));
+      }
+    }
+    html += '</div>';
+  } else {
+    // Find the active sub-tab
+    var activeParts = activeTab.split('|||');
+    var activeTopKey = activeParts[0];
+    var activeSubKey = activeParts.length > 1 ? activeParts[1] : null;
+    var activeData = vars[activeTopKey];
+
+    if (activeSubKey && activeData && activeData[activeSubKey] && typeof activeData[activeSubKey] === 'object') {
+      // Sub-object detail
+      var detail = activeData[activeSubKey];
+      html += '<div class="beautify-partner-header">';
+      // Portrait thumbnail if available
+      var portrait = BEAUTIFY_PORTRAITS[activeSubKey];
+      if (portrait && portrait.normal && portrait.normal.length > 0) {
+        var pidx = (window._beautifyPortraitIdx && window._beautifyPortraitIdx[activeSubKey]) || 0;
+        html += '<img class="beautify-portrait-thumb" src="' + escHtml(portrait.normal[pidx]) + '" onclick="event.stopPropagation();zoomPortrait(\'' + escHtml(portrait.normal[pidx]) + '\')" title="点击放大">';
+      }
+      html += '<span class="beautify-partner-name">' + escHtml(activeSubKey) + '</span>';
+      html += '</div>';
+      html += '<div class="beautify-detail-grid">';
+      var detailKeys = Object.keys(detail);
+      for (var dk = 0; dk < detailKeys.length; dk++) {
+        var dkk = detailKeys[dk];
+        var dv = detail[dkk];
+        if (dv && typeof dv === 'object' && !Array.isArray(dv)) {
+          // Nested sub-object: render inline
+          html += '<div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin:8px 0 4px;">' + escHtml(dkk) + '</div>';
+          var nestedKeys = Object.keys(dv);
+          for (var nk = 0; nk < nestedKeys.length; nk++) {
+            html += _bdItem(nestedKeys[nk], _fmtScalar(dv[nestedKeys[nk]]));
+          }
+        } else {
+          html += _bdItem(dkk, _fmtScalar(dv));
+        }
+      }
+      html += '</div>';
+    } else if (activeData && typeof activeData === 'object' && !Array.isArray(activeData)) {
+      // Flat object detail
+      var flatKeys = Object.keys(activeData);
+      if (flatKeys.length === 0) {
+        html += '<div class="beautify-empty">暂无数据</div>';
+      } else {
+        html += '<div class="beautify-info-grid">';
+        for (var fk = 0; fk < flatKeys.length; fk++) {
+          var fkk = flatKeys[fk];
+          html += _biCard(fkk, _fmtScalar(activeData[fkk]));
+        }
+        html += '</div>';
+      }
+    } else {
+      html += '<div class="beautify-empty">暂无数据</div>';
+    }
+  }
+
+  html += '</div>'; // close beautify-body
+  html += '</div>'; // close beautify-dashboard
+  div.innerHTML = html;
+
+  // Re-bind tab clicks
+  var tabs = div.querySelectorAll('.beautify-tab-btn');
+  for (var j = 0; j < tabs.length; j++) {
+    tabs[j].addEventListener('click', function() {
+      window._beautifyActiveTab = this.getAttribute('data-tab');
+      renderBeautify();
+    });
+  }
+}
+
+function _fmtScalar(v) {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'boolean') return v ? '是' : '否';
+  if (typeof v === 'number') return String(v);
+  return String(v);
+}
+
+function _biCard(label, value) {
+  var num = parseFloat(value);
+  if (!isNaN(num) && num >= 0) {
+    return '<div class="beautify-info-card">' +
+      '<div class="beautify-info-label">' + escHtml(label) + '</div>' +
+      '<div style="display:flex;align-items:center;gap:5px;flex:1;">' +
+      '<div class="tv-stat-bar-bg" style="flex:1;"><div class="tv-stat-bar-fill" style="width:' + Math.min(num, _statMaxGuess(num)) / _statMaxGuess(num) * 100 + '%;background:' + _statColor(label) + '"></div></div>' +
+      '<span class="tv-stat-value">' + num + '</span></div></div>';
+  }
+  return '<div class="beautify-info-card"><div class="beautify-info-label">' + escHtml(label) + '</div><div class="beautify-info-value">' + escHtml(value) + '</div></div>';
+}
+
+function _bdItem(label, value) {
+  var num = parseFloat(value);
+  if (!isNaN(num) && num >= 0) {
+    return '<div class="beautify-detail-item"><div class="beautify-detail-label">' + escHtml(label) + '</div>' +
+      '<div style="display:flex;align-items:center;gap:5px;flex:1;max-width:200px;">' +
+      '<div class="tv-stat-bar-bg" style="flex:1;"><div class="tv-stat-bar-fill" style="width:' + Math.min(num, _statMaxGuess(num)) / _statMaxGuess(num) * 100 + '%;background:' + _statColor(label) + '"></div></div>' +
+      '<span class="tv-stat-value">' + num + '</span></div></div>';
+  }
+  var display = value || '—';
+  return '<div class="beautify-detail-item"><div class="beautify-detail-label">' + escHtml(label) + '</div><div class="beautify-detail-value">' + escHtml(display) + '</div></div>';
+}
+
+function _renderFlatObject(obj, indent) {
+  indent = indent || 0;
+  if (!obj || typeof obj !== 'object') return escHtml(String(obj));
+  var html = '';
+  var keys = Object.keys(obj);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var v = obj[k];
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      // Nested object → collapsible details
+      var subKeys = Object.keys(v);
+      if (subKeys.length === 0) {
+        html += '<div class="data-row"><span class="k">' + escHtml(k) + '</span> <span style="color:var(--muted)">(empty)</span></div>';
+      } else {
+        html += '<details class="beautify-sub" style="padding-left:' + (indent * 6) + 'px;"><summary><b>' + escHtml(k) + '</b> <span style="color:var(--muted);font-size:10px">(' + subKeys.length + ' fields)</span></summary>';
+        html += _renderFlatObject(v, indent + 1);
+        html += '</details>';
+      }
+    } else if (Array.isArray(v)) {
+      html += '<div class="data-row"><span class="k">' + escHtml(k) + '</span> <span style="color:var(--muted)">[' + v.length + ' items]</span></div>';
+    } else if (typeof v === 'boolean') {
+      html += '<div class="data-row"><span class="k">' + escHtml(k) + '</span> <span style="color:' + (v ? '#7a9a5a' : '#9a7a5a') + '">' + (v ? '✓' : '✗') + '</span></div>';
+    } else if (typeof v === 'number') {
+      html += '<div class="data-row"><span class="k">' + escHtml(k) + '</span> <span class="beautify-highlight">' + v + '</span></div>';
+    } else if (typeof v === 'string') {
+      var display = escHtml(v);
+      var trunc = display.length > 20 ? display.substring(0, 20) + '…' : '';
+      html += '<div class="data-row"><span class="k">' + escHtml(k) + '</span> <span' + (trunc ? ' title="' + display + '"' : '') + '>' + (trunc || display) + '</span></div>';
+    }
+  }
+  return html;
+}
+
+// NPC portrait URLs — from card's .beautify.json (no hardcoded fallback)
+var BEAUTIFY_PORTRAITS = (window.BEAUTIFY_DATA && window.BEAUTIFY_DATA.portraits) || {};
+
+// Initialize random portrait indices
+(function() {
+  if (!window._beautifyPortraitIdx) {
+    window._beautifyPortraitIdx = {};
+    for (var k in BEAUTIFY_PORTRAITS) {
+      var normalPool = BEAUTIFY_PORTRAITS[k].normal;
+      if (normalPool && normalPool.length > 0) {
+        window._beautifyPortraitIdx[k] = Math.floor(Math.random() * normalPool.length);
+      }
+    }
+  }
+})();
+
+// renderBeautify defined above (generic, card-agnostic)
+
+function zoomPortrait(url) {
+  var modal = document.getElementById('beautify-modal');
+  var img = document.getElementById('beautify-modal-img');
+  if (!modal || !img || !url) return;
+  img.src = url;
+  modal.style.display = 'flex';
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // No page flash: use dynamic script reloading instead of meta refresh

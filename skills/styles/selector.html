@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>角色设定向导</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=LXGW+WenKai&display=swap');
+:root {
+  --font-display: 'ZCOOL XiaoWei', 'STKaiti', serif;
+  --font-body: 'LXGW WenKai', 'Noto Serif SC', sans-serif;
+  --ink: #1a1d21; --surface: #24282d; --line: #3a4048;
+  --soft: #2a2f35; --text: #e8ecf0; --muted: #8a929a;
+  --ember: #4fd07f; --ember-deep: #2e9a5c; --amber: #6be38f;
+  --warn: #e09040; --danger: #c05040;
+  --radius: 10px; --shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background: #14171b; color: var(--text);
+  font-family: var(--font-body); line-height: 1.6;
+  min-height: 100vh; display: flex; justify-content: center;
+}
+#app { width: 100%; max-width: 680px; padding: 24px 16px 80px; }
+
+/* ── Header ── */
+.header {
+  text-align: center; padding: 28px 0 10px;
+}
+.header .kicker {
+  font-size: 0.72rem; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 4px;
+}
+.header h1 {
+  font-family: var(--font-display); font-size: 1.5rem;
+  letter-spacing: 0.1em; color: var(--ember);
+}
+
+/* ── Progress ── */
+.progress {
+  display: flex; gap: 6px; margin: 16px 0 28px;
+}
+.progress .dot {
+  flex:1; height: 4px; border-radius: 2px; background: var(--line);
+  transition: background 0.3s;
+}
+.progress .dot.done { background: var(--ember); }
+.progress .dot.active { background: var(--amber); }
+
+/* ── Step panels ── */
+.step { display: none; animation: fadeIn .35s ease both; }
+.step.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+.step-title {
+  font-family: var(--font-display); font-size: 1.15rem;
+  color: var(--ember); margin-bottom: 6px;
+}
+.step-desc { color: var(--muted); font-size: 0.85rem; margin-bottom: 18px; }
+
+/* ── Form elements ── */
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 0.82rem; color: var(--muted);
+  margin-bottom: 4px; letter-spacing: 0.04em;
+}
+input[type="text"], input[type="number"], select {
+  width: 100%; padding: 10px 14px;
+  background: var(--ink); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: 0.95rem; font-family: var(--font-body);
+  outline: none; transition: border-color 0.2s;
+}
+input:focus, select:focus { border-color: var(--ember); }
+
+/* ── Chip grid ── */
+.chip-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.chip {
+  padding: 8px 16px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--text); font-size: 0.88rem; cursor: pointer;
+  transition: all 0.18s; user-select: none;
+}
+.chip:hover { border-color: var(--amber); background: var(--soft); }
+.chip.selected { background: var(--ember-deep); border-color: var(--ember); color: #fff; font-weight: 600; }
+.chip.custom { border-style: dashed; }
+
+/* ── Kink search ── */
+.search-box {
+  position: sticky; top: 0; z-index: 10;
+  padding: 8px 0; background: #14171b;
+}
+.search-box input {
+  width: 100%; padding: 10px 14px;
+  background: var(--ink); color: var(--text);
+  border: 1px solid var(--line); border-radius: 24px;
+  font-size: 0.9rem; font-family: var(--font-body); outline: none;
+}
+.search-box input:focus { border-color: var(--ember); }
+.kink-scroll {
+  max-height: 420px; overflow-y: auto; padding: 4px 0;
+}
+
+/* ── Summary ── */
+.summary-block {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px;
+  margin-bottom: 12px;
+}
+.summary-block .key { color: var(--muted); font-size: 0.75rem; }
+.summary-block .val { color: var(--text); font-size: 0.95rem; margin-top: 2px; }
+
+/* ── Buttons ── */
+.btn-row { display: flex; gap: 10px; margin-top: 20px; }
+button {
+  padding: 10px 24px; border: none; border-radius: 24px;
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.18s;
+}
+.btn-prev { background: var(--soft); color: var(--muted); }
+.btn-prev:hover { background: var(--line); color: var(--text); }
+.btn-next { background: var(--ember); color: #0f1612; flex: 1; }
+.btn-next:hover { background: var(--amber); }
+.btn-submit {
+  background: linear-gradient(135deg, var(--ember), var(--ember-deep));
+  color: #0f1612; flex: 1; font-size: 1rem;
+}
+.btn-submit:hover { box-shadow: 0 0 20px rgba(79,208,127,.35); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: var(--ember-deep); color: #fff; padding: 10px 24px;
+  border-radius: 24px; font-weight: 600; font-size: 0.9rem;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 100;
+}
+.toast.show { opacity: 1; }
+
+/* ── Partner row ── */
+.partner-row {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+}
+.partner-row input { flex: 1; }
+.partner-row button {
+  padding: 8px 12px; font-size: 0.8rem; border-radius: 16px;
+  background: var(--danger); color: #fff;
+}
+
+/* tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.tab {
+  padding: 6px 14px; border-radius: 16px; font-size: 0.82rem;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--muted); cursor: pointer; transition: all 0.18s;
+}
+.tab.active { background: var(--ember-deep); border-color: var(--ember); color: #fff; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="kicker">角色设定 · Ver 2.0</div>
+    <h1>角色设定向导</h1>
+  </div>
+  <div class="progress">
+    <div class="dot active" id="dot-1"></div>
+    <div class="dot" id="dot-2"></div>
+    <div class="dot" id="dot-3"></div>
+    <div class="dot" id="dot-4"></div>
+    <div class="dot" id="dot-5"></div>
+  </div>
+
+  <!-- STEP 1: Gender & Age -->
+  <div class="step active" id="step-1">
+    <div class="step-title">第一步 · 基础信息</div>
+    <div class="step-desc">设定你的角色性别与年龄</div>
+    <div class="form-group">
+      <label>性别</label>
+      <div class="chip-grid" id="gender-chips"></div>
+    </div>
+    <div class="form-group">
+      <label>年龄</label>
+      <input type="number" id="inp-age" placeholder="输入年龄 (1-999)" min="1" max="999" value="22">
+    </div>
+    <div class="btn-row">
+      <button class="btn-next" onclick="nextStep()" style="width:100%">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Role -->
+  <div class="step" id="step-2">
+    <div class="step-title">第二步 · 角色身份</div>
+    <div class="step-desc">选择你的角色职业</div>
+    <div class="form-group">
+      <label>性别筛选</label>
+      <div class="tabs" id="role-tabs"></div>
+    </div>
+    <div class="form-group">
+      <div class="chip-grid" id="role-chips"></div>
+    </div>
+    <div class="form-group">
+      <label>或输入自定义角色</label>
+      <input type="text" id="inp-role-custom" placeholder="输入自定义角色身份...">
+    </div>
+    <div class="btn-row">
+      <button class="btn-prev" onclick="prevStep()">← 上一步</button>
+      <button class="btn-next" onclick="nextStep()">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: World & Partners -->
+  <div class="step" id="step-3">
+    <div class="step-title">第三步 · 世界与对象</div>
+    <div class="step-desc">选择世界观、互动对象及着装</div>
+    <div class="form-group">
+      <label>世界观</label>
+      <div class="chip-grid" id="world-chips"></div>
+      <input type="text" id="inp-world-custom" placeholder="或输入自定义世界..." style="margin-top:8px;">
+    </div>
+    <div class="form-group">
+      <label>互动对象 (可添加多人)</label>
+      <div id="partner-list"></div>
+      <button class="chip chip-custom" onclick="addPartner()" style="margin-top:4px;">+ 添加对象</button>
+    </div>
+    <div class="form-group">
+      <label>对象着装</label>
+      <div class="chip-grid" id="clothing-chips"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-prev" onclick="prevStep()">← 上一步</button>
+      <button class="btn-next" onclick="nextStep()">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Kinks -->
+  <div class="step" id="step-4">
+    <div class="step-title">第四步 · 性癖选择</div>
+    <div class="step-desc">选择一个或多个你感兴趣的性癖标签 <span style="color:var(--ember)" id="kink-count">(已选: 0)</span></div>
+    <div class="search-box"><input type="text" id="kink-search" placeholder="搜索性癖标签..." oninput="filterKinks()"></div>
+    <div class="kink-scroll"><div class="chip-grid" id="kink-chips"></div></div>
+    <div class="btn-row">
+      <button class="btn-prev" onclick="prevStep()">← 上一步</button>
+      <button class="btn-next" onclick="nextStep()">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Summary -->
+  <div class="step" id="step-5">
+    <div class="step-title">第五步 · 确认设定</div>
+    <div class="step-desc">检查你的选择，点击开始进入世界</div>
+    <div class="summary-block" id="summary"></div>
+    <div class="btn-row">
+      <button class="btn-prev" onclick="prevStep()">← 上一步</button>
+      <button class="btn-submit" id="btn-start" onclick="submitSelections()">⚡ 开始游戏</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══ DATA ═══
+let selectorData = {};
+let allKinks = [];
+let selected = {
+  gender: '', age: 22,
+  role: '', customRole: '',
+  world: '', customWorld: '',
+  partners: [{name:'', gender:'女', age:'', desc:''}],
+  clothing: [],
+  kinks: []
+};
+
+// ═══ LOAD DATA ═══
+async function loadData() {
+  try {
+    const r = await fetch('selector_data.json');
+    selectorData = await r.json();
+    // Build flat kink list from categories
+    allKinks = [];
+    const cats = selectorData.kinkCategories || {};
+    for (const [cat, items] of Object.entries(cats)) {
+      allKinks.push(...items);
+    }
+    buildAll();
+  } catch(e) {
+    console.error('Failed to load selector data:', e);
+  }
+}
+
+// ═══ BUILD UI ═══
+function buildAll() {
+  buildGenderChips();
+  buildRoleTabs();
+  buildWorldChips();
+  buildClothingChips();
+  buildKinkChips();
+  buildPartnerUI();
+}
+
+function buildGenderChips() {
+  const container = document.getElementById('gender-chips');
+  container.innerHTML = '';
+  ['男', '女', '扶她', '其他'].forEach(g => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (selected.gender === g ? ' selected' : '');
+    chip.textContent = g;
+    chip.onclick = () => {
+      selected.gender = g;
+      buildGenderChips();
+      buildRoleTabs();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function buildRoleTabs() {
+  const tabs = document.getElementById('role-tabs');
+  tabs.innerHTML = '';
+  const gender = selected.gender || '男';
+  let tabKeys, tabLabels;
+  if (gender === '女' || gender === '扶她') {
+    tabKeys = ['女', '男']; tabLabels = ['女性角色', '男性角色'];
+  } else {
+    tabKeys = ['男', '女']; tabLabels = ['男性角色', '女性角色'];
+  }
+  let activeTab = tabs.dataset.active || tabKeys[0];
+  tabKeys.forEach((k, i) => {
+    const t = document.createElement('span');
+    t.className = 'tab' + (k === activeTab ? ' active' : '');
+    t.textContent = tabLabels[i];
+    t.onclick = () => { tabs.dataset.active = k; buildRoleTabs(); buildRoleChips(k); };
+    tabs.appendChild(t);
+  });
+  buildRoleChips(activeTab);
+}
+
+function buildRoleChips(genderKey) {
+  const container = document.getElementById('role-chips');
+  container.innerHTML = '';
+  const roles = genderKey === '男' ? selectorData.maleRoles : selectorData.femaleRoles;
+  const current = selected.role || selected.customRole;
+  roles.forEach(r => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (current === r ? ' selected' : '') + (r === '自定义...' ? ' custom' : '');
+    chip.textContent = r;
+    chip.onclick = () => {
+      if (r === '自定义...') {
+        selected.role = '';
+        selected.customRole = '';
+        document.getElementById('inp-role-custom').focus();
+      } else {
+        selected.role = r; selected.customRole = '';
+        document.getElementById('inp-role-custom').value = '';
+      }
+      buildRoleChips(genderKey);
+    };
+    container.appendChild(chip);
+  });
+}
+
+document.getElementById('inp-role-custom').addEventListener('input', function() {
+  selected.customRole = this.value.trim();
+  selected.role = '';
+  buildRoleChips(document.getElementById('role-tabs').dataset.active || '男');
+});
+
+function buildWorldChips() {
+  const container = document.getElementById('world-chips');
+  container.innerHTML = '';
+  const current = selected.world || selected.customWorld;
+  selectorData.worlds.forEach(w => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (current === w ? ' selected' : '') + (w === '自定义...' ? ' custom' : '');
+    chip.textContent = w;
+    chip.onclick = () => {
+      if (w === '自定义...') {
+        selected.world = '';
+        selected.customWorld = '';
+        document.getElementById('inp-world-custom').focus();
+      } else {
+        selected.world = w; selected.customWorld = '';
+        document.getElementById('inp-world-custom').value = '';
+      }
+      buildWorldChips();
+    };
+    container.appendChild(chip);
+  });
+}
+
+document.getElementById('inp-world-custom').addEventListener('input', function() {
+  selected.customWorld = this.value.trim();
+  selected.world = '';
+  buildWorldChips();
+});
+
+function buildClothingChips() {
+  const container = document.getElementById('clothing-chips');
+  container.innerHTML = '';
+  selectorData.clothing.forEach(c => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (selected.clothing.includes(c) ? ' selected' : '');
+    chip.textContent = c;
+    chip.onclick = () => {
+      const idx = selected.clothing.indexOf(c);
+      if (idx >= 0) selected.clothing.splice(idx, 1);
+      else selected.clothing.push(c);
+      buildClothingChips();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function buildKinkChips(filter) {
+  const container = document.getElementById('kink-chips');
+  container.innerHTML = '';
+  const f = (filter || '').toLowerCase();
+  let shown = 0;
+  allKinks.forEach(k => {
+    if (f && !k.toLowerCase().includes(f) && !k.includes(filter)) return;
+    shown++;
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (selected.kinks.includes(k) ? ' selected' : '');
+    chip.textContent = k;
+    chip.onclick = () => {
+      const idx = selected.kinks.indexOf(k);
+      if (idx >= 0) selected.kinks.splice(idx, 1);
+      else selected.kinks.push(k);
+      chip.className = 'chip' + (selected.kinks.includes(k) ? ' selected' : '');
+      document.getElementById('kink-count').textContent = '(已选: ' + selected.kinks.length + ')';
+    };
+    container.appendChild(chip);
+  });
+  if (shown === 0) container.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">未找到匹配的性癖标签</div>';
+  document.getElementById('kink-count').textContent = '(已选: ' + selected.kinks.length + ')';
+}
+
+function filterKinks() {
+  buildKinkChips(document.getElementById('kink-search').value.trim());
+}
+
+function buildPartnerUI() {
+  const container = document.getElementById('partner-list');
+  container.innerHTML = '';
+  selected.partners.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'partner-row';
+    row.innerHTML = `
+      <input type="text" placeholder="名称" value="${escHtml(p.name)}" oninput="updatePartner(${i},'name',this.value)" style="flex:2">
+      <select onchange="updatePartner(${i},'gender',this.value)" style="flex:1;padding:10px;background:var(--ink);color:var(--text);border:1px solid var(--line);border-radius:10px;font-family:var(--font-body);font-size:0.9rem;">
+        <option value="女" ${p.gender==='女'?'selected':''}>女</option>
+        <option value="男" ${p.gender==='男'?'selected':''}>男</option>
+        <option value="扶她" ${p.gender==='扶她'?'selected':''}>扶她</option>
+      </select>
+      <input type="number" placeholder="年龄" value="${escHtml(p.age)}" oninput="updatePartner(${i},'age',this.value)" style="flex:0.6;min-width:60px;padding:10px;background:var(--ink);color:var(--text);border:1px solid var(--line);border-radius:10px;font-family:var(--font-body);font-size:0.9rem;" min="1" max="999">
+      <input type="text" placeholder="简述(可选)" value="${escHtml(p.desc)}" oninput="updatePartner(${i},'desc',this.value)" style="flex:2">
+      ${selected.partners.length > 1 ? `<button onclick="removePartner(${i})">✕</button>` : ''}
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addPartner() {
+  selected.partners.push({name:'', gender:'女', age:'22', desc:''});
+  buildPartnerUI();
+}
+function removePartner(i) {
+  if (selected.partners.length <= 1) return;
+  selected.partners.splice(i, 1);
+  buildPartnerUI();
+}
+function updatePartner(i, key, val) {
+  selected.partners[i][key] = val;
+}
+
+// ═══ NAVIGATION ═══
+let currentStep = 1;
+const totalSteps = 5;
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  document.querySelectorAll('.progress .dot').forEach((d,i) => {
+    d.className = 'dot' + (i+1 < n ? ' done' : '') + (i+1 === n ? ' active' : '');
+  });
+  currentStep = n;
+  if (n === 4) { buildKinkChips(); document.getElementById('kink-search').value = ''; }
+  if (n === 5) buildSummary();
+  window.scrollTo(0, 0);
+}
+
+function nextStep() {
+  // Validate age
+  if (currentStep === 1) {
+    selected.age = parseInt(document.getElementById('inp-age').value) || 22;
+    if (!selected.gender) { toast('请选择性别'); return; }
+  }
+  if (currentStep === 2) {
+    if (!selected.role && !selected.customRole) { toast('请选择或输入角色'); return; }
+  }
+  if (currentStep === 3) {
+    if (!selected.world && !selected.customWorld) { toast('请选择或输入世界观'); return; }
+    if (selected.partners.some(p => !p.name.trim())) { toast('请填写互动对象名称'); return; }
+  }
+  if (currentStep < totalSteps) showStep(currentStep + 1);
+}
+
+function prevStep() {
+  if (currentStep > 1) showStep(currentStep - 1);
+}
+
+// ═══ SUMMARY ═══
+function buildSummary() {
+  const div = document.getElementById('summary');
+  const w = selected.world || selected.customWorld;
+  const r = selected.role || selected.customRole;
+  const partners = selected.partners.map(p => escHtml(p.name) + (p.desc ? ' (' + escHtml(p.desc) + ')' : '')).join('、');
+  const clothing = selected.clothing.length > 0 ? selected.clothing.map(c => escHtml(c)).join('、') : '未选择';
+  const kinks = selected.kinks.length > 0 ? selected.kinks.map(k => escHtml(k)).join('、') : '未选择(可后补)';
+  div.innerHTML = `
+    <div class="summary-block">
+      <div class="key">性别 / 年龄</div>
+      <div class="val">${selected.gender} · ${selected.age}岁</div>
+    </div>
+    <div class="summary-block">
+      <div class="key">角色身份</div>
+      <div class="val">${r}</div>
+    </div>
+    <div class="summary-block">
+      <div class="key">世界观</div>
+      <div class="val">${w}</div>
+    </div>
+    <div class="summary-block">
+      <div class="key">互动对象</div>
+      <div class="val">${partners || '—'}</div>
+    </div>
+    <div class="summary-block">
+      <div class="key">对象着装</div>
+      <div class="val">${clothing}</div>
+    </div>
+    <div class="summary-block">
+      <div class="key">性癖标签</div>
+      <div class="val" style="font-size:0.85rem;">${kinks}</div>
+    </div>
+  `;
+}
+
+// ═══ SUBMIT ═══
+async function submitSelections() {
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true; btn.textContent = '正在启动...';
+
+  const r = selected.role || selected.customRole;
+  const w = selected.world || selected.customWorld;
+  const partners = selected.partners.map(p => p.name).filter(Boolean).join('、');
+  const clothing = selected.clothing.join('、');
+  const kinks = selected.kinks.join('、');
+
+  const message = [
+    '{{user}}角色设定:',
+    '性别: ' + selected.gender,
+    '年龄: ' + selected.age,
+    '角色: ' + r,
+    '世界: ' + w,
+    '互动对象: ' + (partners || '无'),
+    '互动对象服装: ' + (clothing || '未选择'),
+    '性癖: ' + (kinks || '未选择')
+  ].join('\n');
+
+  try {
+    const resp = await fetch('/api/init_session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: message,
+        config: {
+          gender: selected.gender,
+          age: selected.age,
+          role: r,
+          world: w,
+          partners: selected.partners,
+          clothing: selected.clothing,
+          kinks: selected.kinks
+        }
+      })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      if (data.card_initvar_used) {
+        toast('✓ 已提交（使用卡片原生变量结构），正在生成开场...');
+      } else {
+        toast('✓ 设定已提交，正在生成开场...');
+      }
+      setTimeout(() => { window.location.href = '/'; }, 1500);
+    } else {
+      toast('✗ 提交失败: ' + (data.error || '未知错误'));
+      btn.disabled = false; btn.textContent = '⚡ 开始游戏';
+    }
+  } catch(e) {
+    toast('✗ 无法连接服务器');
+    btn.disabled = false; btn.textContent = '⚡ 开始游戏';
+  }
+}
+
+// ═══ HELPERS ═══
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Listen for age input
+document.getElementById('inp-age').addEventListener('input', function() {
+  selected.age = parseInt(this.value) || 22;
+});
+
+// Init
+loadData();
+</script>
+</body>
+</html>

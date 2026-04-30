@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=LXGW+WenKai&display=swap');
+
+      :root {
+        --font-display: 'ZCOOL XiaoWei', 'STKaiti', serif;
+        --font-body: 'LXGW WenKai', 'Noto Serif SC', serif;
+
+        --color-night-ink: #2b2f33;
+        --color-night-surface: #34393e;
+        --color-night-line: #4a5158;
+        --color-night-soft: #3f454b;
+        --color-night-text: #f2f4f6;
+        --color-night-muted: #b8c0c8;
+
+        --color-day-ink: #f2f4f7;
+        --color-day-surface: #ffffff;
+        --color-day-line: #d2d7df;
+        --color-day-soft: #e6e9ef;
+        --color-day-text: #2a2f35;
+        --color-day-muted: #7d8693;
+
+        --color-ember: #4fd07f;
+        --color-ember-deep: #2e9a5c;
+        --color-amber: #6be38f;
+        --color-jade: #4fd07f;
+        --color-warning: #ff9800;
+
+        --radius-sm: 8px;
+        --radius-md: 14px;
+        --radius-lg: 18px;
+        --radius-xl: 24px;
+        --radius-full: 999px;
+
+        --shadow-soft: 0 12px 26px rgba(13, 15, 18, 0.45);
+        --shadow-glow: 0 0 22px rgba(79, 208, 127, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: transparent;
+        font-family: var(--font-body);
+        line-height: 1.6;
+        padding: 16px;
+      }
+
+      .opening-shell {
+        position: relative;
+        border-radius: calc(var(--radius-xl) + 6px);
+        overflow: hidden;
+        background: transparent;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .opening-shell::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background-image:
+          radial-gradient(720px 420px at 12% -10%, rgba(79, 208, 127, 0.12), transparent 60%),
+          radial-gradient(620px 380px at 88% -12%, rgba(34, 36, 48, 0.18), transparent 65%),
+          linear-gradient(140deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .opening-shell[data-theme='night'] {
+        --panel-ink: var(--color-night-ink);
+        --panel-surface: var(--color-night-surface);
+        --panel-line: var(--color-night-line);
+        --panel-soft: var(--color-night-soft);
+        --panel-text: var(--color-night-text);
+        --panel-muted: var(--color-night-muted);
+      }
+
+      .opening-shell[data-theme='day'] {
+        --panel-ink: var(--color-day-ink);
+        --panel-surface: var(--color-day-surface);
+        --panel-line: var(--color-day-line);
+        --panel-soft: var(--color-day-soft);
+        --panel-text: var(--color-day-text);
+        --panel-muted: var(--color-day-muted);
+      }
+
+      .opening-card {
+        position: relative;
+        z-index: 1;
+        padding: 18px;
+        border-radius: calc(var(--radius-xl) + 4px);
+        background: color-mix(in srgb, var(--panel-ink) 85%, transparent);
+        box-shadow:
+          var(--shadow-soft),
+          inset 0 0 0 1px var(--panel-line);
+      }
+
+      .declare-top {
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--panel-surface) 80%, transparent);
+        border: 1px solid color-mix(in srgb, var(--panel-line) 55%, transparent);
+        margin-bottom: 12px;
+      }
+
+      .declare-title {
+        font-size: 0.75rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--panel-muted);
+        margin-bottom: 6px;
+      }
+
+      .declare-text {
+        font-size: 0.88rem;
+        color: var(--panel-text);
+        line-height: 1.7;
+      }
+
+      .declare-author {
+        margin-top: 6px;
+        font-weight: 600;
+        color: var(--panel-text);
+      }
+
+      .opening-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        border-radius: var(--radius-lg);
+        background: linear-gradient(135deg, rgba(79, 208, 127, 0.2), rgba(79, 208, 127, 0.04));
+        border: 1px solid color-mix(in srgb, var(--panel-line) 55%, transparent);
+      }
+
+      .header-title {
+        display: grid;
+        gap: 4px;
+      }
+
+      .header-kicker {
+        font-size: 0.7rem;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        color: var(--panel-muted);
+      }
+
+      .header-name {
+        font-family: var(--font-display);
+        font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+        letter-spacing: 0.12em;
+        color: var(--panel-text);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .header-actions button {
+        min-width: 34px;
+        height: 34px;
+        padding: 0 10px;
+        border: none;
+        border-radius: var(--radius-sm);
+        background: color-mix(in srgb, var(--panel-surface) 75%, transparent);
+        color: var(--panel-text);
+        cursor: pointer;
+        transition:
+          transform 0.2s ease,
+          background 0.2s ease;
+        font-family: var(--font-body);
+        font-size: 0.75rem;
+      }
+
+      .header-actions button:hover {
+        transform: translateY(-1px);
+        background: color-mix(in srgb, var(--panel-surface) 60%, transparent);
+      }
+
+      .opening-body {
+        padding: 18px 6px 6px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .section-block {
+        padding: 16px;
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--panel-surface) 85%, transparent);
+        border: 1px solid color-mix(in srgb, var(--panel-line) 55%, transparent);
+        animation: fadeIn 0.4s ease both;
+      }
+
+      .section-title {
+        font-family: var(--font-display);
+        font-size: 1.1rem;
+        color: var(--color-ember);
+        margin-bottom: 12px;
+        letter-spacing: 0.08em;
+      }
+
+      .section-title.warning {
+        color: var(--color-warning);
+      }
+
+      .community-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+      }
+
+      .community-item {
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        background: color-mix(in srgb, var(--panel-ink) 70%, transparent);
+        text-align: center;
+      }
+
+      .community-item.clickable {
+        cursor: pointer;
+        transition:
+          background 0.2s ease,
+          transform 0.2s ease;
+      }
+
+      .community-item.clickable:hover {
+        background: color-mix(in srgb, var(--panel-ink) 50%, transparent);
+        transform: translateY(-1px);
+      }
+
+      .community-item.clickable:active {
+        transform: translateY(0);
+      }
+
+      .community-label {
+        font-size: 0.85rem;
+        color: var(--color-ember);
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .community-value {
+        font-size: 1.1rem;
+        color: var(--panel-text);
+      }
+
+      .community-value a {
+        color: var(--color-ember);
+        text-decoration: none;
+        transition: color 0.2s ease;
+      }
+
+      .community-value a:hover {
+        color: var(--color-amber);
+      }
+
+      .community-desc {
+        font-size: 0.75rem;
+        color: var(--panel-muted);
+        margin-top: 4px;
+      }
+
+      .tip-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 0;
+        color: var(--panel-text);
+        font-size: 0.9rem;
+      }
+
+      .tip-item:not(:last-child) {
+        border-bottom: 1px solid color-mix(in srgb, var(--panel-line) 30%, transparent);
+      }
+
+      .tip-marker {
+        color: var(--color-warning);
+        flex-shrink: 0;
+      }
+
+      .tip-text.highlight {
+        font-weight: 600;
+      }
+
+      .opening-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+      }
+
+      .opening-option {
+        padding: 16px;
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--panel-surface) 85%, transparent);
+        border: 1px solid color-mix(in srgb, var(--panel-line) 55%, transparent);
+        color: var(--panel-text);
+        cursor: pointer;
+        transition:
+          background 0.25s ease,
+          border-color 0.25s ease,
+          box-shadow 0.25s ease,
+          transform 0.2s ease;
+        animation: fadeIn 0.4s ease both;
+      }
+
+      .opening-option:hover {
+        background: color-mix(in srgb, var(--panel-surface) 70%, transparent);
+        border-color: var(--color-amber);
+        box-shadow: 0 0 16px rgba(79, 208, 127, 0.25);
+        transform: translateY(-2px);
+      }
+
+      .opening-option:active {
+        background: color-mix(in srgb, var(--color-ember) 15%, var(--panel-surface));
+        border-color: var(--color-ember);
+        transform: translateY(0);
+      }
+
+      .opening-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: var(--radius-full);
+        background: linear-gradient(135deg, var(--color-ember), var(--color-ember-deep));
+        color: #0f1612;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .opening-name {
+        font-family: var(--font-display);
+        font-size: 1.05rem;
+        color: var(--panel-text);
+        margin-bottom: 6px;
+        letter-spacing: 0.05em;
+      }
+
+      .opening-desc {
+        font-size: 0.8rem;
+        color: var(--panel-muted);
+        line-height: 1.5;
+      }
+
+      .cta-banner {
+        text-align: center;
+        padding: 12px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(135deg, rgba(79, 208, 127, 0.15), rgba(79, 208, 127, 0.05));
+        border: 1px solid color-mix(in srgb, var(--color-ember) 30%, transparent);
+      }
+
+      .cta-text {
+        font-family: var(--font-display);
+        font-size: 1.1rem;
+        color: var(--color-ember);
+        letter-spacing: 0.1em;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        padding: 10px 20px;
+        border-radius: var(--radius-full);
+        background: linear-gradient(135deg, var(--color-ember), var(--color-ember-deep));
+        color: #0f1612;
+        font-size: 0.9rem;
+        font-weight: 600;
+        box-shadow: var(--shadow-glow);
+        opacity: 0;
+        transition:
+          transform 0.3s ease,
+          opacity 0.3s ease;
+        z-index: 100;
+      }
+
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 720px) {
+        body {
+          padding: 12px;
+        }
+
+        .opening-shell {
+          width: 95%;
+        }
+
+        .opening-card {
+          padding: 14px;
+        }
+
+        .opening-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .header-actions {
+          width: 100%;
+          justify-content: flex-end;
+        }
+
+        .opening-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="opening-wrapper" class="opening-shell" data-theme="night">
+      <div class="opening-card">
+        <div class="declare-top">
+          <div class="declare-title">声明</div>
+          <div class="declare-text">
+            这张角色卡是免费的，永远禁止商业化行为。如果你是购买获得，请立即退款并向购买平台举死妈贩卖者，维护创作者和您自身的权益。
+          </div>
+          <div class="declare-author">作者 emo的lsp</div>
+        </div>
+        <header class="opening-header">
+          <div class="header-title">
+            <div class="header-kicker">性癖大世界 · WELCOME</div>
+            <div class="header-name">开场指南</div>
+          </div>
+          <div class="header-actions">
+            <button type="button" title="切换主题" onclick="toggleTheme()">
+              <span id="theme-icon">☀️</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="opening-body">
+          <div class="section-block" style="animation-delay: 0.1s">
+            <div class="section-title">🐧 社区交流</div>
+            <div class="community-grid">
+              <div class="community-item clickable" onclick="copyGroupNumber()">
+                <div class="community-label">lsp的个人交流企鹅群</div>
+                <div class="community-value">点击复制群号</div>
+                <div class="community-desc">发卡会有提醒，欢迎加入闲聊</div>
+              </div>
+              <div class="community-item">
+                <div class="community-label">lsp的个人Discord群组</div>
+                <div class="community-value">
+                  <a href="javascript:void(0)" onclick="confirmDiscord()">点此加入服务器 →</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-block" style="animation-delay: 0.2s">
+            <div class="section-title">📱 开始方式</div>
+            <div class="tip-item">
+              <span class="tip-marker">▸</span>
+              <span class="tip-text">手机左滑开始，或点击下方开局选项</span>
+            </div>
+          </div>
+
+          <div class="section-block" style="animation-delay: 0.3s">
+            <div class="section-title warning">⚠️ 重要提醒</div>
+            <div class="tip-item">
+              <span class="tip-marker">▸</span>
+              <span class="tip-text">状态栏内的 [当前性癖] 是后续触发世界书的关键</span>
+            </div>
+            <div class="tip-item">
+              <span class="tip-marker">▸</span>
+              <span class="tip-text">如果发现掉格式，可以重roll或手动修改为世界书条目名字的格式，例如：睡奸</span>
+            </div>
+            <div class="tip-item">
+              <span class="tip-marker">▸</span>
+              <span class="tip-text highlight"
+                >初次选择并发送XP之前，关闭正则的"去除用户消息"这类，否则刚开始不会读取世界书触发关键词</span
+              >
+            </div>
+            <div class="tip-item">
+              <span class="tip-marker">▸</span>
+              <span class="tip-text highlight">如果感觉卡顿，建议在旅程搜索[隐藏助手]</span>
+            </div>
+          </div>
+
+          <div class="section-block" style="animation-delay: 0.4s">
+            <div class="section-title">🎮 开局选择</div>
+            <div class="opening-option" onclick="switchToOpening(1)">
+              <div class="opening-badge">推荐</div>
+              <div class="opening-name">美化选择器开局</div>
+              <div class="opening-desc">方便快捷的美化选择器，轻松选择你的XP开始冒险</div>
+            </div>
+          </div>
+
+          <div class="cta-banner" style="animation-delay: 0.5s">
+            <div class="cta-text">请，多来点xp，集思广益！！！</div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const THEME_KEY = 'sex-world-status-theme';
+      const THEME_CHANNEL = 'sex-world-theme-sync';
+
+      let currentTheme = 'night';
+      let themeChannel = null;
+
+      function init() {
+        loadSettings();
+        setupThemeChannel();
+        window.addEventListener('storage', handleStorageChange);
+      }
+
+      function setupThemeChannel() {
+        try {
+          themeChannel = new BroadcastChannel(THEME_CHANNEL);
+          themeChannel.onmessage = e => {
+            if (e.data && e.data.theme && e.data.theme !== currentTheme) {
+              currentTheme = e.data.theme;
+              applyTheme();
+            }
+          };
+        } catch (err) {}
+      }
+
+      function broadcastTheme() {
+        if (themeChannel) {
+          themeChannel.postMessage({ theme: currentTheme });
+        }
+      }
+
+      function loadSettings() {
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme) {
+          currentTheme = savedTheme;
+          applyTheme();
+        }
+      }
+
+      function handleStorageChange(e) {
+        if (e.key === THEME_KEY && e.newValue) {
+          currentTheme = e.newValue;
+          applyTheme();
+        }
+      }
+
+      function applyTheme() {
+        const shell = document.getElementById('opening-wrapper');
+        shell.setAttribute('data-theme', currentTheme);
+        document.getElementById('theme-icon').textContent = currentTheme === 'night' ? '☀️' : '🌙';
+      }
+
+      function toggleTheme() {
+        currentTheme = currentTheme === 'night' ? 'day' : 'night';
+        localStorage.setItem(THEME_KEY, currentTheme);
+        applyTheme();
+        broadcastTheme();
+      }
+
+      function copyGroupNumber() {
+        const groupNumber = '151611202';
+        navigator.clipboard
+          .writeText(groupNumber)
+          .then(() => {
+            alert('群号已复制: ' + groupNumber);
+          })
+          .catch(() => {
+            alert('复制失败，群号：' + groupNumber);
+          });
+      }
+
+      function confirmDiscord() {
+        if (confirm('即将跳转到Discord服务器，是否继续？')) {
+          window.open('https://discord.gg/x3aKHgfE3u', '_blank', 'noopener,noreferrer');
+        }
+      }
+
+      async function switchToOpening(swipeId) {
+        const clickedCard = event.currentTarget;
+
+        if (clickedCard) {
+          clickedCard.style.opacity = '0.6';
+          clickedCard.style.pointerEvents = 'none';
+        }
+
+        try {
+          const messages = await getChatMessages('0', { include_swipe: true });
+
+          if (messages && messages[0].swipes && messages[0].swipes[swipeId]) {
+            await setChatMessage(messages[0].swipes[swipeId], 0, {
+              swipe_id: swipeId,
+              refresh: 'display_and_render_current',
+            });
+            showToast('正在切换开场白...');
+          } else {
+            throw new Error(`开场白 ${swipeId} 未找到，请确保已按顺序添加所有开场白。`);
+          }
+        } catch (error) {
+          console.error('切换开场白失败:', error);
+          showToast(`切换失败: ${error.message}`);
+          if (clickedCard) {
+            clickedCard.style.opacity = '1';
+            clickedCard.style.pointerEvents = 'auto';
+          }
+        }
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+      }
+
+      init();
+    </script>
+  </body>
+</html>

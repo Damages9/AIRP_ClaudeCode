@@ -1,0 +1,193 @@
+{
+  "user": {
+    "id": "user",
+    "name": "荆长明",
+    "nickname": "",
+    "avatar": "https://files.catbox.moe/wd52xn.JPG",
+    "email": "user@gmail.com",
+    "bio": "",
+    "state": "在线",
+    "phoneBg": "https://files.catbox.moe/c3qnwf.jpg",
+    "chatListBg": "https://files.catbox.moe/r08d2g.jpg",
+    "font": "LXGW WenKai"
+  },
+  "characters": [],
+  "randomAvatars": [
+    "https://files.catbox.moe/arh2ub.JPG",
+    "https://files.catbox.moe/7eb3q3.JPG",
+    "https://files.catbox.moe/o5ana8.JPG",
+    "https://files.catbox.moe/0ihdnf.JPG",
+    "https://files.catbox.moe/8zru9e.JPG",
+    "https://files.catbox.moe/n4uy3d.JPG"
+  ],
+  "backgrounds": [
+    "https://files.catbox.moe/r08d2g.jpg",
+    "https://files.catbox.moe/c3qnwf.jpg",
+    "https://files.catbox.moe/hx3w9g.jpg",
+    "https://files.catbox.moe/8ro986.jpg",
+    "https://files.catbox.moe/frcl2b.jpg",
+    "https://files.catbox.moe/90nlol.jpg",
+    "https://files.catbox.moe/0vj486.jpg",
+    "https://files.catbox.moe/nytecs.jpg",
+    "https://files.catbox.moe/c6x295.jpg",
+    "https://files.catbox.moe/3l9m1t.jpg",
+    "https://files.catbox.moe/99nn6m.jpg",
+    "https://files.catbox.moe/vb4v46.jpg",
+    "https://files.catbox.moe/cjkuqo.jpg",
+    "https://files.catbox.moe/c2hsr6.jpg"
+  ],
+  "music": [
+    {
+      "url": "https://files.catbox.moe/3420bl.mp3",
+      "artist": "Cat & Calmell",
+      "title": "dramatic"
+    },
+    {
+      "url": "https://files.catbox.moe/743jsi.mp3",
+      "artist": "8bite,Dyrox",
+      "title": "frozen heart"
+    },
+    {
+      "url": "https://files.catbox.moe/7dw7ap.mp3",
+      "artist": "Cafuné",
+      "title": "Tek It"
+    },
+    {
+      "url": "https://files.catbox.moe/zx01oj.mp3",
+      "artist": "FIFTY FIFTY",
+      "title": "Cupid"
+    },
+    {
+      "url": "https://files.catbox.moe/wv5h2s.mp3",
+      "artist": "elijah woods",
+      "title": "247, 365"
+    },
+    {
+      "url": "https://files.catbox.moe/ms4bkd.mp3",
+      "artist": "Johnny Stimson",
+      "title": "Butterflies"
+    },
+    {
+      "url": "https://files.catbox.moe/mwmsfs.mp3",
+      "artist": "entoy,suru",
+      "title": "Blue mood"
+    },
+    {
+      "url": "https://files.catbox.moe/zipm4q.mp3",
+      "artist": "Hayd",
+      "title": "Head In The Clouds"
+    },
+    {
+      "url": "https://files.catbox.moe/q85nld.mp3",
+      "artist": "佐藤千亜妃",
+      "title": "S.S.S"
+    },
+    {
+      "url": "https://files.catbox.moe/77bcql.mp3",
+      "artist": "Edo_Ame江户糖,草食考拉",
+      "title": "クリームソーダとシャンデリア"
+    },
+    {
+      "url": "https://files.catbox.moe/2z7gw8.mp3",
+      "artist": "JVKE",
+      "title": "golden hour"
+    },
+    {
+      "url": "https://files.catbox.moe/t8a2t3.mp3",
+      "artist": "當山みれい",
+      "title": "^^"
+    },
+    {
+      "url": "https://files.catbox.moe/78ewdt.mp3",
+      "artist": "あれくん,『ユイカ』",
+      "title": "あのね。"
+    },
+    {
+      "url": "https://files.catbox.moe/iq4gp4.mp3",
+      "artist": "宇多田ヒカル",
+      "title": "One Last Kiss"
+    },
+    {
+      "url": "https://files.catbox.moe/je7m32.mp3",
+      "artist": "HYBS",
+      "title": "Tip Toe"
+    },
+    {
+      "url": "https://files.catbox.moe/42xbhu.mp3",
+      "artist": "keshi",
+      "title": "2 soon"
+    },
+    {
+      "url": "https://files.catbox.moe/dyxukt.mp3",
+      "artist": "ROSÉ",
+      "title": "Gone"
+    },
+    {
+      "url": "https://files.catbox.moe/1xd69s.mp3",
+      "artist": "LANY",
+      "title": "anything 4 u"
+    },
+    {
+      "url": "https://files.catbox.moe/xvb9h2.mp3",
+      "artist": "落日飞车,Michael Seyer",
+      "title": "Jellyfish"
+    },
+    {
+      "url": "https://files.catbox.moe/yvl6y4.mp3",
+      "artist": "keshi",
+      "title": "LIMBO"
+    },
+    {
+      "url": "https://files.catbox.moe/8i9f9c.mp3",
+      "artist": "MyGO!!!!!",
+      "title": "春日影"
+    },
+    {
+      "url": "https://files.catbox.moe/ms9sq7.mp3",
+      "artist": "RADWIMPS",
+      "title": "前前前世 (movie ver.)"
+    },
+    {
+      "url": "https://files.catbox.moe/lq2yf0.mp3",
+      "artist": "『ユイカ』",
+      "title": "17さいのうた。"
+    },
+    {
+      "url": "https://files.catbox.moe/2kafzb.mp3",
+      "artist": "『ユイカ』",
+      "title": "好きだから。"
+    },
+    {
+      "url": "https://files.catbox.moe/2cin5o.mp3",
+      "artist": "瀬名航,鎖那",
+      "title": "ひとり旅"
+    }
+  ],
+  "map": {
+    "name": "",
+    "districts": []
+  },
+  "groups": [],
+  "fonts": [
+    {
+      "name": "linja waso",
+      "url": "https://fontsapi.zeoseven.com/230/main/result.css"
+    },
+    {
+      "name": "GenWanMin2 TC R",
+      "url": "https://fontsapi.zeoseven.com/301/main/result.css"
+    },
+    {
+      "name": "Fusion Pixel 12px M latin",
+      "url": "https://fontsapi.zeoseven.com/570/main/result.css"
+    },
+    {
+      "name": "KingHwaOldSong",
+      "url": "https://fontsapi.zeoseven.com/309/main/result.css"
+    },
+    {
+      "name": "LXGW WenKai",
+      "url": "https://fontsapi.zeoseven.com/292/main/result.css"
+    }
+  ]
+}
