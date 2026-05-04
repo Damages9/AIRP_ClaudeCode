@@ -28,14 +28,17 @@ skills/styles/import_context.txt
 # Card-specific openings (runtime, changes per card import)
 skills/styles/openings.json
 
-# Lock files (root only)
-/*.lock
-
-# Ensure .claude/ is always tracked
-!.claude/**
+# Lock files
+*.lock
+.claude/scheduled_tasks.lock
 
 # User card folders — ignore all top-level dirs except project core
 # (Any new card folder is automatically protected from accidental git add)
 */
 !.claude/
+!.claude/commands/
+!.claude/commands/**
+!.claude/skills/
+!.claude/skills/**
+!.claude/settings.local.json
 !skills/
