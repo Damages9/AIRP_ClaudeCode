@@ -18,16 +18,24 @@ skills/styles/response.txt
 # Pending signal file
 skills/styles/.pending
 
+# Session init signal (runtime touch)
+skills/styles/.session_init
+
+# Runtime context files
+skills/styles/round_context.txt
+skills/styles/import_context.txt
+
+# Card-specific openings (runtime, changes per card import)
+skills/styles/openings.json
+
 # Lock files (root only)
 /*.lock
 
 # Ensure .claude/ is always tracked
 !.claude/**
 
-# User card folders (not part of engine)
-test/
-xp/
-绿毛/
-
-
-40k/
+# User card folders — ignore all top-level dirs except project core
+# (Any new card folder is automatically protected from accidental git add)
+*/
+!.claude/
+!skills/

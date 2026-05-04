@@ -35,7 +35,11 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "Bash(git rm *)",
+      "Bash(git ls-files *)",
+      "Bash(git check-ignore *)",
+      "PowerShell(\\(Get-Content D:\\\\ds4\\\\README.md | Measure-Object -Line\\).Lines)"
     ]
   },
   "hooks": {
