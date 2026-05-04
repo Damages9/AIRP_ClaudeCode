@@ -389,14 +389,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json(settings)
             return
 
-        # Redirect root to selector if session not initialized
-        if parsed.path == "/" or parsed.path == "/index.html":
-            if not SESSION_FILE.exists():
-                self.send_response(302)
-                self.send_header("Location", "/selector.html")
-                self.end_headers()
-                return
-
         # Default: serve static files
         super().do_GET()
 
