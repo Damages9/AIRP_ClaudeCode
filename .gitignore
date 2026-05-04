@@ -18,9 +18,11 @@ skills/styles/response.txt
 # Pending signal file
 skills/styles/.pending
 
-# Lock files
-*.lock
-scheduled_tasks.lock
+# Lock files (root only)
+/*.lock
+
+# Ensure .claude/ is always tracked
+!.claude/**
 
 # User card folders (not part of engine)
 test/

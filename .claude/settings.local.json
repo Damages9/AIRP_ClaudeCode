@@ -11,7 +11,50 @@
       "Bash(echo \"PID=$!\")",
       "Read(//tmp/**)",
       "Bash(netstat -ano)",
-      "Bash(taskkill //F //PID 35324 //PID 24392 //PID 34264 //PID 7780)"
+      "Bash(taskkill //F //PID 35324 //PID 24392 //PID 34264 //PID 7780)",
+      "Bash(env)",
+      "Bash(powershell -Command \"[System.Environment]::GetEnvironmentVariables\\('User'\\)\")",
+      "WebFetch(domain:api-docs.deepseek.com)",
+      "WebSearch",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(gh repo *)",
+      "Bash(grep -n \"SillyTavern\\\\|getContext\\\\|tavern_\\\\|getChat\\\\|replaceVariables\\\\|getVariables\\\\|setChatMessages\\\\|getLastMessageId\\\\|getChatMessages\\\\|eventEmit\\\\|eventOn\\\\|getScriptId\\\\|toastr\\\\|\\\\$\\(\" /tmp/MagVarUpdate/src/function/update_variables.ts)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh search *)",
+      "Bash(xargs grep *)",
+      "Bash(PYTHONIOENCODING=utf-8 python \"D:/ds4/skills/import_card.py\" \"D:/ds4/tmp_import_test/card1_6\" \"D:/ds4\")",
+      "Bash(PYTHONIOENCODING=utf-8 python \"D:/ds4/skills/import_card.py\" \"D:/ds4/tmp_import_test/card40k\" \"D:/ds4\")",
+      "Bash(PYTHONIOENCODING=utf-8 python \"D:/ds4/skills/import_card.py\" \"D:/ds4/tmp_import_test/card19961\" \"D:/ds4\")",
+      "Bash(PYTHONIOENCODING=utf-8 python \"D:/ds4/skills/import_card.py\" \"D:/ds4/tmp_import_test/card25\" \"D:/ds4\")",
+      "Bash(claude settings *)",
+      "Bash(claude project *)",
+      "Bash(claude doctor *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(claude *)",
+      "Bash(claude --version)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "PowerShell(git *)"
+    ]
+  },
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*skills*' } | Stop-Process -Force\"",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*mvu_server*' } | Stop-Process -Force\"",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }
