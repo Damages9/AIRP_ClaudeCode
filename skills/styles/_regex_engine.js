@@ -65,7 +65,7 @@
       replaceString: raw.replace || raw.replaceString || '',
       flags: raw.flags || '',
       trimStrings: raw.trimStrings || [],
-      placement: raw.placement || [1, 2, 3, 5, 6],
+      placement: raw.placement || [2],  // 默认仅 AI_OUTPUT，与 ST 行为一致
       disabled: !!raw.disabled,
       markdownOnly: !!raw.markdownOnly,
       promptOnly: !!raw.promptOnly,
@@ -177,13 +177,11 @@
       replacement = replacement.replace(/\{\{match\}\}/g, match);
 
       // 处理 $1, $2 ... → 捕获组
-      // String.replace 的回调已经是 (match, g1, g2, ...)，
-      // 但我们在这里用 arguments 按索引处理
       for (var g = 1; g < arguments.length - 2; g++) {
         var groupValue = arguments[g];
         if (groupValue == null) groupValue = '';
 
-        // 应用 trimStrings 过滤
+        // 应用 trimStrings 到捕获组值
         if (trimStrings.length) {
           for (var t = 0; t < trimStrings.length; t++) {
             var trim = trimStrings[t];
@@ -198,6 +196,20 @@
 
       return replacement;
     });
+
+    // 对最终结果应用 trimStrings 裁剪（匹配 ST 行为）
+    if (trimStrings.length) {
+      for (var t2 = 0; t2 < trimStrings.length; t2++) {
+        var ts = trimStrings[t2];
+        if (!ts) continue;
+        while (result.indexOf(ts) === 0) {
+          result = result.substring(ts.length);
+        }
+        while (result.length >= ts.length && result.lastIndexOf(ts) === result.length - ts.length) {
+          result = result.substring(0, result.length - ts.length);
+        }
+      }
+    }
 
     return result;
   }

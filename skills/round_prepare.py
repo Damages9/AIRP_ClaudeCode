@@ -14,9 +14,13 @@ round_prepare.py — 回合预处理管线。
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+# In-process imports replace subprocess calls (was: subprocess.run to these scripts).
+import match_worldbook
+import mvu_check
+from handler import apply_injections
 
 
 def read_file(path):
@@ -56,26 +60,29 @@ def list_initvar_paths(initvar):
 
 
 def grep_reference_md(card_folder, section_title):
-    """Grep reference.md for a section and return up to 200 lines."""
+    """Read reference.md and return lines under ## section_title (up to 200 lines).
+    Pure Python — no shell grep dependency (Windows compatible)."""
     ref_path = Path(card_folder) / "memory" / "reference.md"
     if not ref_path.exists():
         return ""
     try:
-        result = subprocess.run(
-            ["grep", "-n", "-A", "200", f"^{section_title}$", str(ref_path)],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            lines = result.stdout.split("\n")
-            output = []
-            for line in lines[:200]:
-                if line.startswith("## ") and output:
-                    break
-                output.append(line)
-            return "\n".join(output)
-        return ""
+        text = ref_path.read_text(encoding="utf-8")
     except Exception:
         return ""
+    marker = f"## {section_title}"
+    lines = text.split("\n")
+    output = []
+    found = False
+    for line in lines:
+        if found and line.startswith("## ") and not line.startswith(marker):
+            break
+        if found:
+            output.append(line)
+            if len(output) >= 200:
+                break
+        if line.strip() == marker.strip():
+            found = True
+    return "\n".join(output)
 
 
 def _keyword_score(keyword, text):
@@ -134,6 +141,57 @@ def main():
     root = sys.argv[2]
     styles_dir = Path(root) / "skills" / "styles"
 
+    # ── Token delta capture (retroactively fixes previous turn) ──
+    pending_tokens = {}
+    try:
+        import token_stats
+        ts_path = token_stats.locate_transcript()
+        cp = token_stats.load_checkpoint(card_folder) if ts_path else {}
+        t_offset = cp.get("last_byte_offset", 0)
+
+        if cp.get("previous_checkpoint"):
+            token_stats.compute_startup_cost(card_folder)
+            cp = token_stats.load_checkpoint(card_folder)
+            t_offset = cp.get("last_byte_offset", 0)
+
+        usage = token_stats.read_usage_since(ts_path, t_offset) if ts_path else []
+        pending_delta = token_stats.compute_delta(usage)
+
+        if pending_delta.get("request_count", 0) > 0:
+            pd_in = pending_delta["input_tokens"]
+            pd_out = pending_delta["output_tokens"]
+            pending_tokens = {
+                "round_in": pd_in,
+                "round_out": pd_out,
+                "round_total": pd_in + pd_out,
+                "cache_read": pending_delta["cache_read"],
+                "cache_hit": pending_delta["cache_hit_pct"],
+            }
+
+            # Retroactively fix the previous AI turn's token data in chat_log
+            cl_path = Path(card_folder) / "chat_log.json"
+            cl = read_json(cl_path) or []
+            if cl:
+                prev_turn = cl[-1]
+                cum = cp.get("cumulative", {})
+                prev_turn["tokens"] = {
+                    "in": pd_in,
+                    "out": pd_out,
+                    "total": pd_in + pd_out,
+                    "cache_read": pending_delta["cache_read"],
+                    "cache_hit": pending_delta["cache_hit_pct"],
+                    "cumulative_in": cum.get("input_tokens", 0) + pd_in,
+                    "cumulative_out": cum.get("output_tokens", 0) + pd_out,
+                    "cumulative_total": cum.get("input_tokens", 0) + cum.get("output_tokens", 0) + pd_in + pd_out,
+                }
+                with open(cl_path, "w", encoding="utf-8") as f:
+                    json.dump(cl, f, ensure_ascii=False, indent=2)
+
+            # Advance checkpoint to current transcript position
+            token_stats.save_checkpoint(card_folder, delta=pending_delta, label="round")
+    except Exception:
+        pass
+
     # ── Gather data first ──
     input_path = styles_dir / "input.txt"
     user_input = read_file(input_path) or "(无输入)"
@@ -160,36 +218,25 @@ def main():
     # Worldbook variable matching
     match_result = None
     try:
-        result = subprocess.run(
-            [sys.executable, str(Path(root) / "skills" / "match_worldbook.py"), card_folder],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            match_result = json.loads(result.stdout)
+        match_result = match_worldbook.match_worldbook(card_folder)
     except Exception:
         pass
 
-    # Injections
+    # Injections (apply_injections prints to stdout for CLI use; suppress here)
     injections = []
     try:
-        result = subprocess.run(
-            [sys.executable, str(Path(root) / "skills" / "handler.py"), card_folder, "--injections"],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            injections = json.loads(result.stdout)
+        import io as _io, contextlib as _ctxlib
+        with _ctxlib.redirect_stdout(_io.StringIO()):
+            injections = apply_injections(card_folder)
+        if injections is None:
+            injections = []
     except Exception:
         pass
 
     # Variable paths
     mvu_data = None
     try:
-        result = subprocess.run(
-            [sys.executable, str(Path(root) / "skills" / "mvu_check.py"), card_folder],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            mvu_data = json.loads(result.stdout)
+        mvu_data = mvu_check.generate_checklist(card_folder)
     except Exception:
         pass
 
@@ -240,6 +287,12 @@ def main():
 
     dynamic_parts.append("=== USER_INPUT ===")
     dynamic_parts.append(user_text)
+
+    # Pending token delta from previous round's generation
+    if pending_tokens:
+        dynamic_parts.append("\n=== PENDING_TOKENS ===")
+        for k, v in pending_tokens.items():
+            dynamic_parts.append(f"  {k}: {v}")
 
     # Worldbook variable matches
     dynamic_parts.append("\n=== WORLD_MATCHES ===")

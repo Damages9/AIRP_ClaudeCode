@@ -1016,13 +1016,17 @@ function userName() {
 }
 
 function syncPlayerName() {
-  // Sync #player-name-input from MVU variables (initvar) on first load
+  // Sync #player-name-input from MVU variables (initvar) on first load.
+  // The card stores the user reference under 主角.基础信息.姓名 (protagonist path),
+  // not under a separate 玩家 key.
   var vars = window.MVU_VARIABLES;
   if (!vars) return;
-  var playerName = (vars['玩家'] && vars['玩家']['姓名']) || '';
-  if (!playerName || playerName === '{{user}}') return;
-  var input = document.querySelector('#input-panel input[id*="char-name"], #char-name.form-input');
-  if (!input) input = document.getElementById('player-name-input');
+  var playerName = '';
+  if (vars['主角'] && vars['主角']['基础信息'] && vars['主角']['基础信息']['姓名']) {
+    playerName = vars['主角']['基础信息']['姓名'];
+  }
+  if (!playerName || playerName === '{{user}}' || playerName === '{[user]}') return;
+  var input = document.getElementById('player-name-input');
   if (input && input.tagName === 'INPUT' && !input.dataset.synced && (!input.value || input.value === '{{user}}')) {
     input.value = playerName;
     input.dataset.synced = '1';
@@ -1030,21 +1034,25 @@ function syncPlayerName() {
 }
 
 function onPlayerNameChange() {
-  var input = document.querySelector('#input-panel input[id*="char-name"], #char-name.form-input');
-  if (!input) input = document.getElementById('player-name-input');
+  var input = document.getElementById('player-name-input');
   if (!input || input.tagName !== 'INPUT') return;
   var vars = window.MVU_VARIABLES;
-  if (!vars || !vars['玩家']) return;
+  if (!vars) return;
+  if (!vars['主角']) vars['主角'] = {};
+  if (!vars['主角']['基础信息']) vars['主角']['基础信息'] = {};
   var newName = input.value.trim();
   if (newName && newName !== '{{user}}') {
-    vars['玩家']['姓名'] = newName;
+    vars['主角']['基础信息']['姓名'] = newName;
   }
 }
 
 function replaceUser(s) {
+  if (!s) return s;
   const name = userName();
-  if (name === '{{user}}' || !s) return s;
-  return s.split('{{user}}').join(name);
+  const replacement = (name !== '{{user}}') ? name : '{{user}}';
+  s = s.split('{{user}}').join(replacement);
+  s = s.split('{[user]}').join(replacement);
+  return s;
 }
 
 function applyBeautifyCSS() {
@@ -1195,6 +1203,7 @@ function render() {
   const beautifyEl = document.getElementById('beautify-container');
   let rawBeautify = window.BEAUTIFY_HTML || '';
   let newBeautify = resolveBeautifyMacros(rawBeautify);
+  newBeautify = replaceUser(newBeautify);
   if (_prevBeautifyHtml !== newBeautify) {
     _prevBeautifyHtml = newBeautify;
     beautifyEl.innerHTML = newBeautify;
@@ -1276,7 +1285,7 @@ function render() {
 function updateOpeningsCard(S) {
   const card = document.getElementById('openings-card');
   const sel = document.getElementById('set-opening');
-  if (S.generatedCount >= 1 && sel.options.length > 1) {
+  if (sel.options.length > 1) {
     card.style.display = '';
   } else {
     card.style.display = 'none';
@@ -1561,6 +1570,7 @@ async function loadSettings() {
     document.getElementById('set-bgnpc').checked = s.bgNpc === true;
     document.getElementById('set-wordcount').value = s.wordCount || 600;
     if (s.charName) document.getElementById('player-name-input').value = s.charName;
+    render();
   } catch(e) { /* server may not be ready yet */ }
 }
 
@@ -1602,18 +1612,48 @@ function updateTokenCount() {
   var el = document.getElementById('tb-tokens');
   if (!el) return;
   var turnTokens = window.TURN_TOKENS || {};
+  var startupCost = window.STARTUP_COST || {};
   var keys = Object.keys(turnTokens);
-  var lastTotal = 0;
+  var parts = [];
+
+  // Startup cost (one-time import/setup — persistent line item)
+  var startupTotal = startupCost.total || 0;
+  if (startupTotal > 0) {
+    parts.push('启动 ' + formatNum(startupTotal));
+  }
+
   if (keys.length > 0) {
     var last = turnTokens[keys[keys.length - 1]];
-    lastTotal = last.total || 0;
+    // Skip per-round display for opening turn — its tokens are the startup cost
+    var isOpening = (keys.length === 1 && last.is_startup);
+    if (!isOpening) {
+      var roundTotal = last.round_total || last.total || 0;
+      if (roundTotal > 0) {
+        parts.push('本轮 ' + formatNum(roundTotal));
+      }
+    }
+    // Cache hit rate (prefer latest round, fall back to startup)
+    var cacheHit = last.cache_hit || startupCost.cache_hit || 0;
+    if (cacheHit > 0) {
+      parts.push('缓存 ' + cacheHit.toFixed(1) + '%');
+    }
+  } else if (startupCost.cache_hit && startupCost.cache_hit > 0) {
+    parts.push('缓存 ' + startupCost.cache_hit.toFixed(1) + '%');
   }
-  var cumulative = (window.STATE && window.STATE.totalTokens) ? window.STATE.totalTokens : 0;
-  if (lastTotal > 0 || cumulative > 0) {
-    el.textContent = 'Token: ' + formatNum(lastTotal) + ' / ' + formatNum(cumulative);
-  } else {
-    el.textContent = 'Token: —';
+
+  // Cumulative total
+  var cumulativeTotal = 0;
+  if (keys.length > 0) {
+    var last = turnTokens[keys[keys.length - 1]];
+    cumulativeTotal = last.cumulative_total || 0;
   }
+  if (!cumulativeTotal) {
+    cumulativeTotal = (window.STATE && window.STATE.totalTokens) ? window.STATE.totalTokens : 0;
+  }
+  if (cumulativeTotal > 0) {
+    parts.push('累计 ' + formatNum(cumulativeTotal));
+  }
+  el.textContent = parts.length > 0 ? 'Token: ' + parts.join(' | ') : 'Token: —';
 }
 
 // ═══ MVU Variables Panel ═══

@@ -103,8 +103,13 @@ NSFW 档位（舒缓/直白/关闭） · 人称切换 · 字数控制（100–60
 ### 📊 Token 用量统计
 每轮生成后从 Claude Code session transcript 读取 **DeepSeek 真实 token 计数**（非估算），存入 chat_log.json 和 state.js。前端顶栏实时显示**本轮 / 累计** Token 消耗，按卡片独立累计。
 
-### 🔧 回合管线（AI 注意力卸载）
-`round_prepare.py` 一次性收集全部上下文（输入/记忆/世界书双通道匹配/注入/变量路径/对话历史）→ 写入单一文件。AI 只需**读一次文件 → 思考 → 写一次文件**，无需手动执行 15+ 步机械操作。`round_deliver.py` 自动完成质检→交付→记忆→剧情规划触发检查。每轮 AI 工具调用从 ~20 降到 ~5。
+### 🔧 三大管线（AI 注意力卸载）
+
+**导入管线**：`import_prepare.py` 一步完成清理→解析→会话初始化→上下文汇总。替代原先 9 步手动流程（进程清理、卡片解析、记忆初始化、状态文件写入等），AI 只需读一次 `import_context.txt`。
+
+**回合管线**：`round_prepare.py` 收集全部上下文（输入/记忆/世界书双通道匹配/注入/变量路径/对话历史）→ 写入 `round_context.txt`。AI 只需**读一次 → 思考 → 写一次**。`round_deliver.py` 自动质检→交付→记忆→剧情规划触发检查。
+
+**清理管线**：`SessionEnd` 钩子（正常退出自动清理）+ `import_prepare.py` Phase 0（启动时兜底清理）+ `start_server.py`（启动服务器前的端口释放）。三层保险，不再残留僵尸进程。
 
 ### 🧩 酒馆兼容层
 内嵌 jQuery 3.5.1 + lodash + toastr（本地提供，零 CDN 依赖）。独立正则引擎 `_regex_engine.js` 完整实现酒馆 `getRegexedString()` —— 6 类 placement 过滤 + LRU 缓存。`_st_shims.js` 兼容层提供 `getAllVariables()`、`getvar()`、`eventOn/eventEmit` 等 ST API。角色卡内嵌 HTML+JS 终端可直接运行。
@@ -201,6 +206,10 @@ PNG 角色卡可搭配**任意多个 JSON 文件**放入卡片目录——全局
 
 ## 🚀 快速开始
 
+> ⚠️ **重要：请使用 PowerShell 运行本项目，不要使用 cmd（命令提示符）。**
+> 
+> 本项目大量使用 PowerShell 命令进行进程管理、端口清理等操作。cmd 无法执行这些命令，会导致启动失败或端口占用。在文件夹地址栏输入 `powershell` 回车即可打开 PowerShell。
+
 ### 5 分钟从零开始
 
 如果你是第一次用，按顺序走这 5 步：
@@ -233,9 +242,9 @@ PNG 角色卡可搭配**任意多个 JSON 文件**放入卡片目录——全局
 
 **④ 启动**
 
-在 `我的角色` 文件夹内打开终端（在该文件夹的地址栏输入 `cmd` 回车），输入：
+在 `我的角色` 文件夹内打开 **PowerShell** 终端（在该文件夹的地址栏输入 `powershell` 回车），输入：
 
-```bash
+```powershell
 claude
 ```
 
@@ -325,7 +334,7 @@ Claude Code 启动时会自动扫描**当前文件夹**下的素材：
 
 ### 三步启动
 
-```bash
+```powershell
 # 0. 首次使用：运行环境配置脚本（仅需一次）
 #    双击 setup-deepseek-claude.bat → 输入 DeepSeek API Key → 完成
 
@@ -347,48 +356,42 @@ claude                             # 启动 Claude Code
 
 ### 使用场景
 
-除 `/rp` 自动处理外，也可手动输入以下提示词：
+除 `/rp` 一键启动外，也可用自然语言精确控制：
 
 #### 🎭 角色卡 RP
-
-将角色卡 PNG 放入文件夹，启动 Claude Code 后输入：
-
-> 「在该目录下有一张角色卡 `xxx.png`，分析这张角色卡，我要在这张卡的基础上进行 airp。」
-
-Claude Code 会自动解析 PNG 内嵌的角色设定、开场白和世界书条目，写入记忆文件，并生成开局叙事。
+> 「读取这张角色卡，开始 RP」
 
 #### 🖊️ 小说炼化文风
+> 「完整阅读 `小说.txt`，总结其文风，命名为 `XX风格`」
 
-将小说 TXT 放入文件夹，启动 Claude Code 后输入：
-
-> 「在该目录下有一部小说 `xxx.txt`，完整阅读此小说全部内容，并总结其文风，命名为 `XXX风格`。」
-
-AI 会自动分析小说的遣词、句式、段落、节奏等六个维度，生成文风配置文件到 `skills/styles/profiles/`。刷新前端即可在下拉框中选择新风格。
+AI 自动分析遣词/句式/段落/节奏等六个维度，写入 `skills/styles/profiles/`。刷新前端即可选择。
 
 #### 📖 进入小说世界 RP
+> 「读取 `小说.txt`，我要扮演 __（主角/配角/自定义角色）__，时间点是 __。以该时间点写开场。」
 
-将小说 TXT 放入文件夹，启动 Claude Code 后输入：
-
-> 「在该目录下有一部小说 `xxx.txt`，我要在这张卡的基础上进行 airp。我要扮演的角色是 __（主角/配角/自定义角色）__，同时我想进入的时间点是 __。请完整阅读此小说全部内容，并以我选择的时间点进行开场白描写，以供我进行 airp。」
-
-如果选择自定义角色，需要尽量详细地写出你的设定（身份、外貌、性格、背景、与主线人物的关系等）。AI 会提取小说中的世界观、人物关系和关键剧情节点，以你指定的时间点和角色视角生成开场。
+自定义角色需写出身份、外貌、性格、背景等设定。
 
 ### 切换卡片
 
-关闭当前 Claude Code 会话，`cd` 到另一个卡片文件夹，重新启动即可。引擎代码（`skills/`）是所有卡片共享的，无需复制。
+关闭当前 Claude Code 会话（`/quit` 或关闭窗口），`cd` 到另一个卡片文件夹，重新 `claude` → `/rp` 即可。引擎代码（`skills/`）是所有卡片共享的，无需复制。旧卡的端口会被新会话的自动清理机制释放。
 
 ### 关闭
 
-直接退出 Claude Code。下次启动时自动清理残留 Python 进程。
+直接退出 Claude Code（`/quit` 或关闭终端窗口）。系统通过两层机制自动释放端口：
+
+1. **退出时**：`SessionEnd` 钩子自动杀掉 Python 和 Node 后端进程
+2. **下次启动时**：`import_prepare.py` 清理任何残留进程（兜底，覆盖非正常退出场景）
+
+无需手动 `taskkill`。
 
 <details>
-<summary>🔧 手动启动桥接服务器（可选，通常不需要）</summary>
+<summary>🔧 手动启动桥接服务器（通常不需要，start_server.py 已自动处理）</summary>
 
-```bash
-python {ROOT}/skills/server.py &
+```powershell
+python skills/start_server.py .
 ```
 
-服务器默认监听 `127.0.0.1:8765`。
+服务默认监听 `127.0.0.1:8765`，MVU 服务监听 `127.0.0.1:8766`。
 
 </details>
 
@@ -411,16 +414,17 @@ python {ROOT}/skills/server.py &
 │   └── skills/rp.md              # /rp 自定义启动命令
 └── skills/                       # 后端与前端
     ├── server.py                 # 🌐 HTTP 桥接服务器（端口 8765）
-    ├── handler.py                # 🔧 回合管理（解析/追加/重建/回退）
-    ├── import_card.py            # 📥 一键导入（PNG/JSON/TXT → memory/）
+    ├── handler.py                # 🔧 回合管理（解析/追加/重建/回退/MVU变量/MVU变量校验）
+    ├── import_card.py            # 📥 卡片素材解析（PNG/JSON/TXT → memory/）
+    ├── import_prepare.py         # 📋 导入管线（清理→解析→会话初始化→上下文汇总）
+    ├── start_server.py           # 🚀 服务器启动器（自动检查+清理+轮询就绪）
     ├── mvu_engine.py             # ⚙️ MVU 变量引擎（JSONPatch 解析/执行）
     ├── mvu_check.py              # ✅ MVU 变量交叉检查
     ├── mvu_server.js             # 🔗 MVU 变量服务（Zod schema 校验）
     ├── match_worldbook.py        # 🔍 世界书关键词匹配
-    ├── write_memory.py           # 📝 剧情记忆异步更新
-    ├── post_quality_check.py     # 📏 字数门禁 + Token 采集
-    ├── round_prepare.py          # 📋 回合预处理管线（收集上下文）
-    ├── round_deliver.py          # 📬 回合后处理管线（质检+交付+记忆）
+    ├── write_memory.py           # 📝 剧情记忆更新
+    ├── round_prepare.py          # 📥 回合预处理管线（收集上下文→写入 round_context.txt）
+    ├── round_deliver.py          # 📤 回合后处理管线（质检→交付→记忆→剧情规划触发）
     └── styles/                   # 前端与运行时
         ├── index.html            # 🖥️ 主前端界面（SPA）
         ├── _st_shims.js          # 🔗 SillyTavern API 兼容层
@@ -435,7 +439,7 @@ python {ROOT}/skills/server.py &
             └── 轻松活泼.md       #   简洁明快/口语化
 ```
 
-> 运行时自动生成的文件（`content.js`、`state.js`、`input.txt`、`.card_path` 等）已加入 `.gitignore`。
+> 运行时自动生成的文件（`content.js`、`state.js`、`input.txt`、`.card_path`、`round_context.txt`、`import_context.txt`、`.pending` 等）已加入 `.gitignore`。
 
 ---
 
@@ -503,21 +507,33 @@ graph LR
     F -->|不足80% 重试| E
 ```
 
-### 说人话版：你打一个字，背后发生了什么？
+### 说人话版：启动到跑起来
 
-不用看懂上面那张图。用大白话说，从你点"提交"到看到 AI 回复，整个过程是这样的：
+```
+启动 Claude Code → 输入 /rp
+            ↓
+import_prepare.py 一步完成：清理残留 → 解析角色卡 → 初始化记忆 → 生成上下文
+            ↓
+start_server.py 启动桥接服务器（自动检查+清理端口+轮询就绪）
+            ↓
+AI 读取 import_context.txt，审阅开场，交付前端
+            ↓
+http://localhost:8765 打开浏览器 ✨
+```
+
+### 说人话版：你打一个字，背后发生了什么？
 
 ```
 你在浏览器输入 "你好" → 点提交
-                ↓
-server.py 收到，写一个标记文件
-                ↓
-Claude Code 通过长轮询立即感知到，开始干活：
+            ↓
+server.py 收到，写标记文件
+            ↓
+Claude Code 通过长轮询立即感知，开始干活：
   ✦ round_prepare.py 收集全部上下文（输入/记忆/世界书匹配/变量路径）
   ✦ AI 读取汇总上下文，走五步思考流程
   ✦ 按你选的文风写叙事回复 + 更新变量
   ✦ round_deliver.py 质检字数→交付前端→更新记忆
-                ↓
+            ↓
 你看到 AI 的回复出现在浏览器里 ✨
 ```
 
@@ -531,7 +547,7 @@ Claude Code 通过长轮询立即感知到，开始干活：
 
 1. 确认 Claude Code 正在运行（终端窗口没关）
 2. 检查是否用的 `http://` 而不是 `https://`
-3. 如果端口被占用：在终端运行 `netstat -ano | findstr :8765`，找到占用进程后 `taskkill /PID 进程号 /F`
+3. 如果端口被占用：重启 Claude Code 即可——`import_prepare.py` 和 `start_server.py` 会自动清理残留进程并重新绑定端口
 
 ### 回复一直没出现？
 

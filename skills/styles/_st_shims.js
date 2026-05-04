@@ -233,7 +233,7 @@
 
   /* ─── GetAllVariables ─── */
   window._deepReplaceUser = function (obj, name) {
-    if (typeof obj === 'string') return obj.split('{{user}}').join(name);
+    if (typeof obj === 'string') return obj.split('{{user}}').join(name).split('{[user]}').join(name);
     if (Array.isArray(obj)) {
       var arr = [];
       for (var i = 0; i < obj.length; i++) arr[i] = window._deepReplaceUser(obj[i], name);

@@ -35,14 +35,26 @@ def parse_response(text):
 
 
 def _parse_tokens(raw):
-    """Parse <tokens> block: 'in: N\\nout: N\\ntotal: N' → dict."""
+    """Parse <tokens> block: 'key: value' lines → dict.
+    Handles int, float, and percentage (77.4%) values."""
     tokens = {}
     for line in raw.split("\n"):
         line = line.strip()
         if ":" in line:
             k, v = line.split(":", 1)
+            v = v.strip()
+            key = k.strip()
+            # Try int
             try:
-                tokens[k.strip()] = int(v.strip())
+                tokens[key] = int(v)
+                continue
+            except ValueError:
+                pass
+            # Try float (includes percentage like "77.4%")
+            try:
+                v_clean = v.replace("%", "")
+                tokens[key] = float(v_clean)
+                continue
             except ValueError:
                 pass
     return tokens
@@ -504,6 +516,21 @@ def write_content_js(card_folder):
         if tokens:
             turn_tokens[str(turn_idx)] = tokens
 
+    # Extract startup cost from turn 0 token data (persistent across rounds)
+    startup_cost = {}
+    if log and log[0].get("tokens"):
+        t0 = log[0]["tokens"]
+        st_in = t0.get("startup_in", 0) or t0.get("in", 0)
+        st_out = t0.get("startup_out", 0) or t0.get("out", 0)
+        st_total = t0.get("startup_total", 0) or t0.get("total", 0)
+        if st_total > 0:
+            startup_cost = {
+                "in": st_in,
+                "out": st_out,
+                "total": st_total,
+                "cache_hit": t0.get("cache_hit", 0),
+            }
+
         wrap = '<div class="turn-wrap">'
         if user_raw:
             wrap += '<div class="turn-user"><div class="turn-role">你</div><div class="turn-text">' + user_raw + '</div></div>'
@@ -598,6 +625,7 @@ def write_content_js(card_folder):
         "window.SUMMARY_TEXT = " + json.dumps(latest_summary, ensure_ascii=False) + ";\n"
         "window.TURN_OPTIONS = " + json.dumps(options, ensure_ascii=False) + ";\n"
         "window.TURN_TOKENS = " + json.dumps(turn_tokens, ensure_ascii=False) + ";\n"
+        "window.STARTUP_COST = " + json.dumps(startup_cost, ensure_ascii=False) + ";\n"
         "window.MVU_VARIABLES = " + json.dumps(_get_latest_variables(log), ensure_ascii=False) + ";\n"
         "window.MVU_DELTA = " + json.dumps(_get_latest_delta(log), ensure_ascii=False) + ";\n"
         "window.TURN_VARIABLES = " + json.dumps(_get_turn_variables(log), ensure_ascii=False) + ";\n"
@@ -908,12 +936,14 @@ def append_turn(card_folder, polished_input=None, content="", summary="", option
     state_raw = read_state()
     new_count = (next_index + 1)
     state_raw = re.sub(r'(\s+generatedCount:\s*)\d+', rf'\g<1>{new_count}', state_raw)
-    if tokens and tokens.get("total", 0) > 0:
-        # Accumulate into totalTokens
-        m = re.search(r'totalTokens:\s*(\d+)', state_raw)
-        prev_total = int(m.group(1)) if m else 0
-        new_total = prev_total + tokens["total"]
-        state_raw = re.sub(r'(\s+totalTokens:\s*)\d+', rf'\g<1>{new_total}', state_raw)
+    if tokens:
+        turn_total = tokens.get("total") or tokens.get("round_total") or tokens.get("startup_total") or 0
+        if turn_total > 0:
+            # Accumulate into totalTokens
+            m = re.search(r'totalTokens:\s*(\d+)', state_raw)
+            prev_total = int(m.group(1)) if m else 0
+            new_total = prev_total + turn_total
+            state_raw = re.sub(r'(\s+totalTokens:\s*)\d+', rf'\g<1>{new_total}', state_raw)
     write_state(state_raw, card_folder)
 
     return next_index
@@ -1211,6 +1241,27 @@ if __name__ == "__main__":
     polished_input = parts.get("polished_input", "")
     tokens = parts.get("tokens", None)
 
+    # ── Opening: compute startup cost BEFORE append_turn so turn 0 has token stats ──
+    if is_opening and not tokens:
+        try:
+            from token_stats import save_checkpoint, load_checkpoint
+            save_checkpoint(card_folder, label="startup_end")
+            cp = load_checkpoint(card_folder)
+            startup_cost = cp.get("startup_cost", {})
+            st_in = startup_cost.get("input_tokens", 0)
+            st_out = startup_cost.get("output_tokens", 0)
+            if st_in > 0 or st_out > 0:
+                tokens = {
+                    "in": st_in,
+                    "out": st_out,
+                    "total": st_in + st_out,
+                    "cache_read": startup_cost.get("cache_read", 0),
+                    "cache_hit": startup_cost.get("cache_hit_pct", 0.0),
+                    "is_startup": True,
+                }
+        except Exception:
+            pass
+
     idx = append_turn(
         card_folder,
         polished_input=polished_input if not is_opening else None,
@@ -1225,4 +1276,5 @@ if __name__ == "__main__":
     # Clean up
     resp_path.unlink(missing_ok=True)
     bridge_done()
+
     print(f"[handler] Turn {idx} saved. content.js rebuilt.")

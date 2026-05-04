@@ -19,7 +19,35 @@ import struct
 import sys
 import subprocess
 import base64
+from datetime import date, datetime
 from pathlib import Path
+
+
+def _json_dumps(obj, **kwargs):
+    """JSON serializer that handles date/datetime objects."""
+    def _default(o):
+        if isinstance(o, (date, datetime)):
+            return o.isoformat()
+        if hasattr(o, '__dict__'):
+            return str(o)
+        raise TypeError(f'Object of type {o.__class__.__name__} is not JSON serializable')
+    return json.dumps(obj, default=_default, **kwargs)
+
+
+def _make_json_safe(obj):
+    """Recursively convert date/datetime objects to ISO strings for JSON serialization."""
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_make_json_safe(v) for v in obj]
+    return obj
+
+
+def _json_dump_safe(obj, fp, **kwargs):
+    """json.dump with automatic date→string conversion."""
+    return json.dump(_make_json_safe(obj), fp, **kwargs)
 
 
 def parse_png_chunks(filepath: str) -> dict | None:
@@ -101,7 +129,14 @@ def _extract_all_regex(card_data: dict, card_dir: str) -> dict | None:
             "find": parsed["find"],
             "flags": parsed["flags"],
             "replace": replace,
+            "placement": rs.get("placement", [2]),
+            "substituteRegex": rs.get("substituteRegex", 0),
+            "trimStrings": rs.get("trimStrings", []),
+            "minDepth": rs.get("minDepth"),
+            "maxDepth": rs.get("maxDepth"),
+            "runOnEdit": rs.get("runOnEdit", False),
             "markdownOnly": markdown_only,
+            "promptOnly": rs.get("promptOnly", False),
         }
         all_regex.append(entry)
 
@@ -378,6 +413,140 @@ def _set_nested_path(root: dict, path: str, value):
             cur[part] = {}
         cur = cur[part]
     cur[parts[-1]] = value
+
+
+def extract_initvar_from_first_mes(card_data: dict) -> dict:
+    """Parse <initvar>...</initvar> blocks from first_mes and alternate_greetings.
+
+    In the MVU browser flow, these blocks OVERRIDE worldbook [initvar] entries
+    for the first message. The content can be YAML, JSON, or JSON5, optionally
+    wrapped in ``` code fences. See MVU src/function/initvar/variable_init.ts.
+
+    Returns merged dict of all initvar blocks found, or empty dict.
+    """
+    import re as _re
+
+    sources = []
+    fm = card_data.get("data", {}).get("first_mes", "")
+    if fm:
+        sources.append(fm)
+    for ag in card_data.get("data", {}).get("alternate_greetings", []) or []:
+        if ag:
+            sources.append(ag)
+
+    result = {}
+    for text in sources:
+        # Match <initvar>...</initvar> blocks (case-insensitive, multiline)
+        # From MVU: /<(initvar)>(?:\s*```.*)?([\s\S]*?)(?:```\s*)?<\/\1>/gim
+        for m in _re.finditer(
+            r"<initvar>\s*(?:```(?:\w+)?\s*)?([\s\S]*?)(?:```\s*)?</initvar>",
+            text,
+            _re.IGNORECASE,
+        ):
+            raw = m.group(1).strip()
+            raw = _strip_xml_tags(raw).strip()
+            parsed = _parse_mvu_content(raw)
+            if isinstance(parsed, dict):
+                _deep_merge(result, parsed)
+    return result
+
+
+def _strip_xml_tags(text: str) -> str:
+    """Strip MVU XML tags (e.g. </UpdateVariable>) from text before parsing.
+
+    Card authors embed variable data inside <UpdateVariable>/<initvar> blocks.
+    The MVU engine strips these tags before YAML/JSON parsing.
+    """
+    import re as _re
+    return _re.sub(r"</?\w+>", "", text)
+
+
+def _extract_per_greeting_initvar(card_data: dict) -> list:
+    """Extract <initvar> blocks from each greeting separately.
+
+    Returns a list parallel to openings: [fm_initvar_or_None, ag1_initvar_or_None, ...].
+    Each element is a dict (if initvar blocks were found) or None.
+
+    Handles the MVU/tavern_helper standard format where card authors nest
+    <initvar> inside <UpdateVariable>::
+
+        <UpdateVariable>
+        <initvar>
+        世界:
+          时间: 10月15日 14:00
+          ...
+        </UpdateVariable>
+        </initvar>
+
+    The MVU engine strips XML tags before parsing content.
+    """
+    import re as _re
+
+    sources = []
+    fm = card_data.get("data", {}).get("first_mes", "")
+    if fm:
+        sources.append(fm)
+    for ag in card_data.get("data", {}).get("alternate_greetings", []) or []:
+        if ag:
+            sources.append(ag)
+
+    results = []
+    for text in sources:
+        result = {}
+        for m in _re.finditer(
+            r"<initvar>\s*(?:```(?:\w+)?\s*)?([\s\S]*?)(?:```\s*)?</initvar>",
+            text,
+            _re.IGNORECASE,
+        ):
+            raw = m.group(1).strip()
+            raw = _strip_xml_tags(raw).strip()
+            parsed = _parse_mvu_content(raw)
+            if isinstance(parsed, dict):
+                _deep_merge(result, parsed)
+        results.append(result if result else None)
+    return results
+
+
+def _parse_mvu_content(raw: str):
+    """Parse content string using MVU's parseString() fallback chain.
+
+    Tries: YAML → JSON5 → jsonrepair(JSON).  Mirrors MVU's util/common.ts.
+    """
+    # Is this JSON-like (starts with { or [)?
+    json_like = raw.startswith("{") or raw.startswith("[")
+
+    if not json_like:
+        try:
+            import yaml
+            return yaml.safe_load(raw)
+        except Exception:
+            pass
+
+    try:
+        import json5
+        return json5.loads(raw)
+    except Exception:
+        pass
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        pass
+
+    try:
+        from jsonrepair import jsonrepair
+        return json.loads(jsonrepair(raw))
+    except Exception:
+        pass
+
+    if json_like:
+        try:
+            import yaml
+            return yaml.safe_load(raw)
+        except Exception:
+            pass
+
+    return None
 
 
 def extract_initvar_from_beautify_template(card_dir: str) -> dict:
@@ -820,6 +989,9 @@ def _merge_json_worldbooks(card_data, json_files, card_dir, skip_file=None):
         except Exception:
             continue
 
+        if not isinstance(jdata, dict):
+            continue
+
         entries = jdata.get("data", {}).get("character_book", {}).get("entries", [])
         if not isinstance(entries, list) or not entries:
             entries = jdata.get("entries", [])
@@ -843,13 +1015,16 @@ def _merge_json_worldbooks(card_data, json_files, card_dir, skip_file=None):
     return file_count, entry_count
 
 
-def main():
-    if len(sys.argv) < 3:
-        print(json.dumps({"error": "用法: import_card.py <卡片文件夹> <ROOT路径>"}, ensure_ascii=False))
-        sys.exit(1)
+def run_import(card_dir, root_dir):
+    """Core import logic. Returns result dict. No side effects on stdout.
 
-    card_dir = sys.argv[1]
-    root_dir = sys.argv[2]
+    Parses card data (PNG/JSON/TXT), generates all derived files
+    (openings, memory, worldbook index, card structure, initvar, beautify,
+    regex_scripts), pre-fills response.txt, creates .session_init.
+
+    Callers (import_prepare.py or main() below) are responsible for
+    printing the JSON summary or acting on the result dict.
+    """
     styles_dir = os.path.join(root_dir, "skills", "styles")
     os.makedirs(styles_dir, exist_ok=True)
 
@@ -922,8 +1097,7 @@ def main():
     if card_data is None:
         result["status"] = "no_card_found"
         result["files_scanned"] = {"png": len(png_files), "json": len(json_files), "txt": len(txt_files)}
-        print(json.dumps(result, ensure_ascii=False))
-        sys.exit(0)
+        return result
 
     # 5. 提取元数据
     result["card_name"] = get_card_name(card_data)
@@ -984,67 +1158,101 @@ def main():
         if regex_info:
             result["regex_scripts"] = regex_info
 
-        # 7.2 MVU: 优先使用 Node.js runner 执行卡片的 tavern_helper 脚本
-        #    跑 runner → 写入 .initvar.json + .initvar_schema.json + .injection_rules.json
-        #    失败或无 tavern_helper → 回退到世界书 [initvar] 条目（兼容旧卡）
+        # 7.2 MVU 变量初始化：双路径合并（mirrors MagVarUpdate initCheck()）
+        #
+        #    实际 MVU 浏览器流程：
+        #      1. loadInitVarData() 扫描世界书 [initvar] 条目 → 合并为 stat_data
+        #      2. first_mes <initvar> 块会覆盖世界书 [initvar] 的值
+        #      3. Zod .prefault() 提供 schema 元数据和默认值（补充路径）
+        #
+        #    合并优先级： Zod .prefault() (底) < worldbook [initvar] (中) < first_mes <initvar> (顶)
+        #    每个路径独立运行，然后深度合并。这样即使 Zod 路径返回空/null 值，
+        #    [initvar] 路径仍然可以填充正确的初始值。
+        #    Ref: MagVarUpdate/src/function/initvar/variable_init.ts
+
+        merged_initvar = {}
+        sources_used = []
+
+        # Path A: Zod schema via Node.js → .prefault() defaults + schema metadata
         runner_data = run_card_scripts(card_dir, root_dir)
         if runner_data:
-            # Write .initvar.json (variable template from Zod schema)
-            if runner_data.get("initvar"):
-                initvar_path = os.path.join(card_dir, ".initvar.json")
-                with open(initvar_path, "w", encoding="utf-8") as f:
-                    json.dump(runner_data["initvar"], f, ensure_ascii=False, indent=2)
-                result["initvar_keys"] = list(runner_data["initvar"].keys())
-                result["initvar_source"] = "tavern_helper (Zod schema via Node.js)"
-            # Write .initvar_schema.json (type metadata + constraints + enums)
+            zod_initvar = runner_data.get("initvar")
+            if zod_initvar and isinstance(zod_initvar, dict):
+                _deep_merge(merged_initvar, zod_initvar)
+                sources_used.append("tavern_helper (Zod .prefault())")
+            # Write schema metadata regardless (type info is always useful)
             if runner_data.get("schema"):
                 schema_path = os.path.join(card_dir, ".initvar_schema.json")
                 with open(schema_path, "w", encoding="utf-8") as f:
                     json.dump(runner_data["schema"], f, ensure_ascii=False, indent=2)
                 result["schema_fields"] = len(runner_data["schema"].get("fields", {}))
                 result["schema_constraints"] = len(runner_data["schema"].get("constraints", []))
-            # Write .injection_rules.json (kink keyword injection config)
             if runner_data.get("injections"):
                 inj_path = os.path.join(card_dir, ".injection_rules.json")
                 with open(inj_path, "w", encoding="utf-8") as f:
                     json.dump(runner_data["injections"], f, ensure_ascii=False, indent=2)
                 result["injection_rules"] = len(runner_data["injections"])
-            # Write .initvar_scope.json (variable scope metadata)
             if runner_data.get("scope"):
                 scope_path = os.path.join(card_dir, ".initvar_scope.json")
                 with open(scope_path, "w", encoding="utf-8") as f:
                     json.dump(runner_data["scope"], f, ensure_ascii=False, indent=2)
                 result["scope"] = runner_data["scope"]
-        else:
-            # Fallback #2: extract [initvar] from worldbook entries
-            initvar_data = extract_initvar_data(entries)
-            if initvar_data:
-                initvar_path = os.path.join(card_dir, ".initvar.json")
-                with open(initvar_path, "w", encoding="utf-8") as f:
-                    json.dump(initvar_data, f, ensure_ascii=False, indent=2)
-                result["initvar_keys"] = list(initvar_data.keys())
-                result["initvar_source"] = "worldbook [initvar] (fallback #2)"
 
-        # Fallback #3: extract from beautify template {{format_message_variable}} macros
+        # Path B: worldbook [initvar] entries (mirrors MVU loadInitVarData)
+        initvar_wb = extract_initvar_data(entries)
+        if initvar_wb:
+            _deep_merge(merged_initvar, initvar_wb)
+            sources_used.append("worldbook [initvar]")
+
+        # Path C: first_mes <initvar> blocks (mirrors MVU first-message initvar override)
+        initvar_fm = extract_initvar_from_first_mes(card_data)
+        if initvar_fm:
+            _deep_merge(merged_initvar, initvar_fm)
+            sources_used.append("first_mes <initvar>")
+
+        # Write merged initvar (if any source produced data)
+        if merged_initvar:
+            initvar_path = os.path.join(card_dir, ".initvar.json")
+            with open(initvar_path, "w", encoding="utf-8") as f:
+                _json_dump_safe(merged_initvar, f, ensure_ascii=False, indent=2)
+            result["initvar_keys"] = list(merged_initvar.keys())
+            result["initvar_source"] = " + ".join(sources_used)
+
+        # Fallback: if all paths above produced nothing, try beautify/KV heuristics
         if not result.get("initvar_keys"):
             beautify_initvar = extract_initvar_from_beautify_template(card_dir)
             if beautify_initvar:
-                initvar_path = os.path.join(card_dir, ".initvar.json")
-                with open(initvar_path, "w", encoding="utf-8") as f:
-                    json.dump(beautify_initvar, f, ensure_ascii=False, indent=2)
-                result["initvar_keys"] = list(beautify_initvar.keys())
-                result["initvar_source"] = "beautify template macros (fallback #3)"
-
-        # Fallback #4: extract structured key-value from worldbook entries
-        # (common in Chinese cultivation cards without explicit [initvar] tags)
+                _deep_merge(merged_initvar, beautify_initvar)
+                sources_used.append("beautify macros")
+                result["initvar_source"] = "beautify template macros (heuristic)"
         if not result.get("initvar_keys"):
             wb_initvar = extract_initvar_from_worldbook_structured(entries)
             if wb_initvar:
-                initvar_path = os.path.join(card_dir, ".initvar.json")
-                with open(initvar_path, "w", encoding="utf-8") as f:
-                    json.dump(wb_initvar, f, ensure_ascii=False, indent=2)
-                result["initvar_keys"] = list(wb_initvar.keys())
-                result["initvar_source"] = "worldbook structured KV (fallback #4)"
+                _deep_merge(merged_initvar, wb_initvar)
+                sources_used.append("structured KV")
+                result["initvar_source"] = "worldbook structured KV (heuristic)"
+        # Re-check and write if heuristic sources produced data
+        if merged_initvar and not os.path.exists(os.path.join(card_dir, ".initvar.json")):
+            initvar_path = os.path.join(card_dir, ".initvar.json")
+            with open(initvar_path, "w", encoding="utf-8") as f:
+                _json_dump_safe(merged_initvar, f, ensure_ascii=False, indent=2)
+            result["initvar_keys"] = list(merged_initvar.keys())
+
+        # 7.2.5 为每个开场白附加变量快照，使 switch_opening 时状态栏跟随切换
+        if openings and merged_initvar:
+            import copy as _copy
+            per_greeting = _extract_per_greeting_initvar(card_data)
+            openings_path = os.path.join(styles_dir, "openings.json")
+            with open(openings_path, "r", encoding="utf-8") as f:
+                _openings_data = json.load(f)
+            for _i, _o in enumerate(_openings_data):
+                _ov = _copy.deepcopy(merged_initvar)
+                if _i < len(per_greeting) and per_greeting[_i]:
+                    _deep_merge(_ov, per_greeting[_i])
+                _o["variables"] = _ov
+            with open(openings_path, "w", encoding="utf-8") as f:
+                json.dump(_openings_data, f, ensure_ascii=False, indent=2)
+            result["openings_variables_added"] = True
 
         # 7.3 Beautify: 提取 [beautify] 美化数据 → .beautify.json
         beautify_data = extract_beautify_data(entries)
@@ -1078,8 +1286,25 @@ def main():
     Path(session_path).touch()
     result["session_init"] = True
 
-    # 9. 输出 JSON 摘要
-    print(json.dumps(result, ensure_ascii=False))
+    return result
+
+
+def main():
+    if len(sys.argv) < 3:
+        print(json.dumps({"error": "用法: import_card.py <卡片文件夹> <ROOT路径>"}, ensure_ascii=False))
+        sys.exit(1)
+
+    result = run_import(sys.argv[1], sys.argv[2])
+
+    # 9. 输出 JSON 摘要 (使用 ensure_ascii=False 避免中文转义)
+    # 修复: Windows GBK 终端可能无法编码表情符号,使用编码安全的输出
+    import io
+    try:
+        output_str = _json_dumps(result, ensure_ascii=False, indent=2)
+        sys.stdout.reconfigure(encoding='utf-8')
+        print(output_str)
+    except (UnicodeEncodeError, AttributeError):
+        print(_json_dumps(result, ensure_ascii=True, indent=2))
 
 
 if __name__ == "__main__":

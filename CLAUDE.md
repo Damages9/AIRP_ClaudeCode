@@ -14,7 +14,8 @@
 - 当前卡片文件夹（如 `{ROOT}/我的角色/`）下的 `chat_log.json`、`.card_data.json`、`.initvar.json`、`.var_diff.json`、`.beautify.json`
 - 当前卡片文件夹下的 `memory/` 目录及其所有 `.md`、`.json` 文件 — 跨会话记忆与世界书索引
 - `{ROOT}/skills/styles/round_context.txt` — 回合预处理汇总上下文
-- `{ROOT}/skills/handler.py`, `{ROOT}/skills/server.py`, `{ROOT}/skills/mvu_engine.py`, `{ROOT}/skills/mvu_check.py`, `{ROOT}/skills/match_worldbook.py`, `{ROOT}/skills/write_memory.py`, `{ROOT}/skills/post_quality_check.py`, `{ROOT}/skills/round_prepare.py`, `{ROOT}/skills/round_deliver.py`
+- `{ROOT}/skills/styles/import_context.txt` — 导入预处理汇总上下文
+- `{ROOT}/skills/handler.py`, `{ROOT}/skills/server.py`, `{ROOT}/skills/mvu_engine.py`, `{ROOT}/skills/mvu_check.py`, `{ROOT}/skills/match_worldbook.py`, `{ROOT}/skills/write_memory.py`, `{ROOT}/skills/round_prepare.py`, `{ROOT}/skills/round_deliver.py`, `{ROOT}/skills/import_prepare.py`, `{ROOT}/skills/start_server.py`
 - `{ROOT}/STORY.md` — 叙事理论框架，剧情规划时读取
 - `{ROOT}/CLAUDE.md`
 
@@ -29,205 +30,114 @@
 
 ### Bash 命令
 - `powershell -Command "Get-Process python | Where-Object { $_.CommandLine -like '*skills*' } | Stop-Process -Force"` — 清理残留进程
-- `netstat -ano | grep :8765` — 检查端口占用
 - `taskkill` / `Stop-Process` — 清理残留进程
 - `curl -s http://localhost:8765/api/pending` — 检查待处理输入
 - `curl -s http://localhost:8765/api/openings` — 获取开场白
 - `curl -s -X POST http://localhost:8765/api/switch_opening -H "Content-Type: application/json" -d ...` — 切换开场白
-- `python "{ROOT}/skills/server.py" &` — 后台启动桥接服务器
+- `curl -s --max-time 310 http://localhost:8765/api/wait_pending` — 长轮询等待用户输入
+- `python "{ROOT}/skills/server.py" &` — 后台启动桥接服务器（start_server.py 内部调用，此权限为兜底）
 - `python "{ROOT}/skills/handler.py" "<卡片文件夹>" [--opening|--injections]` — 处理回合 / 开局 / 注入规则查询
-- `python "{ROOT}/skills/import_card.py" "<卡片文件夹>" "{ROOT}"` — 一键导入角色卡/世界书，解析 PNG/JSON/TXT 并初始化 memory
-- `python "{ROOT}/skills/match_worldbook.py" "<卡片文件夹>"` — 匹配变量变更与世界书索引，返回 top-3 相关条目
-- `python "{ROOT}/skills/post_quality_check.py" "{ROOT}"` — 合并 token 采集 + 字数门禁检查，追加 <tokens> 到 response.txt
-- `python "{ROOT}/skills/write_memory.py" "<卡片文件夹>"` — 追加本轮摘要到 project.md，更新 MEMORY.md 索引
+- `python "{ROOT}/skills/import_card.py" "<卡片文件夹>" "{ROOT}"` — 单独导入角色卡（兜底）
+- `python "{ROOT}/skills/match_worldbook.py" "<卡片文件夹>"` — 匹配变量变更与世界书索引
+- `python "{ROOT}/skills/write_memory.py" "<卡片文件夹>"` — 追加本轮摘要到 project.md
 - `python "{ROOT}/skills/round_prepare.py" "<卡片文件夹>" "{ROOT}"` — 回合预处理管线
 - `python "{ROOT}/skills/round_deliver.py" "<卡片文件夹>" "{ROOT}"` — 回合后处理管线
-- `python -c "..."` — 临时诊断脚本（字符编码修复、JSON 检查、进程管理等，非生产流程）
-- `sleep 2` — 等待服务器就绪
-- `ls -la` 检查 `.pending` 文件
+- `python "{ROOT}/skills/import_prepare.py" "<卡片文件夹>" "{ROOT}"` — 导入/启动预处理管线
+- `python "{ROOT}/skills/start_server.py" "{ROOT}"` — 启动桥接服务器
+- `python -c "..."` — 临时诊断（编码修复、JSON 检查、进程管理等非生产流程）
 
 ### 启动阶段额外权限
 - 扫描卡片文件夹（`Glob` 查找 `.png`, `.json`, `.txt`）
-- 一键导入角色卡：`python "{ROOT}/skills/import_card.py" "<卡片文件夹>" "{ROOT}"`
-- 读取卡片文件夹下的 `.card_data.json`（import_card.py 生成）
+- 导入管线：`python "{ROOT}/skills/import_prepare.py" "<卡片文件夹>" "{ROOT}"`
+- 单独导入（如需）：`python "{ROOT}/skills/import_card.py" "<卡片文件夹>" "{ROOT}"`
+- 读取卡片文件夹下的 `.card_data.json`、`.initvar.json`、`.beautify.json`、`.regex_scripts.json`
+- 读取 `{ROOT}/skills/styles/import_context.txt` — 启动汇总上下文
 - 如果端口被多进程占用，直接 kill 全部后重启
 
 > **{ROOT}** = 本文件所在目录。下文所有路径均相对于此。
 
 ## 自动启动流程
 
-当你被启动时，**在回复用户任何话之前**，按顺序自动执行以下步骤：
+当你被启动时，**在回复用户任何话之前**，按顺序自动执行以下步骤。
 
-### 0. 清理残留进程
-**每次启动必须先执行**——杀掉上次会话可能遗留的 server/poll 进程，释放端口：
-```
-powershell -Command "Get-Process python | Where-Object { $_.CommandLine -like '*skills*' } | Stop-Process -Force" 2>/dev/null
-```
-然后确认端口干净：`netstat -ano | grep :8765 | grep LISTENING` 应无输出。
+导入管线已正规化：所有机械操作集中在一行脚本 `import_prepare.py` 中。与回合管线（`round_prepare.py` → AI → `round_deliver.py`）对应，导入管线为：`import_prepare.py` → AI 审阅 → `handler.py --opening`。
 
-### 1. 启动桥接服务器
-先检查服务器是否已在运行：`curl -s http://localhost:8765/api/pending`
-如果返回的不是 JSON（连接失败），则启动服务器：
+### 1. 导入预处理管线（一步完成所有机械操作）
 ```
-python "{ROOT}/skills/server.py" &
+python "{ROOT}/skills/import_prepare.py" "<卡片文件夹>" "{ROOT}"
 ```
-然后等 2 秒让服务器就绪。
+此脚本自动完成：
+- **Phase 0 — 清理**：杀掉残留 Python 进程（保留自身）、删除残留 .pending
+- **Phase 1 — 导入**：代理 `import_card.run_import()` 完成角色卡解析（PNG/JSON/TXT → card_data, openings, memory, worldbook index, card structure, initvar, beautify, regex_scripts, phone_data）
+- **Phase 2 — 会话初始化**：写入 `.card_path`、`state.js`（预填 world name）、`content.js`（占位模板）、`chat_log.json`（仅当不存在时创建）、`.session_init`
+- **Phase 3 — 上下文**：写入 `import_context.txt`（启动阶段汇总上下文，详见下方文件结构）
+- **Phase 4 — 输出**：打印 JSON 摘要到 stdout
 
-### 2. 写入卡片路径
-将当前目录（卡片文件夹）的绝对路径写入 `{ROOT}/skills/styles/.card_path`：
-```python
-with open(r"{ROOT}/skills/styles/.card_path", "w") as f:
-    f.write("当前卡片文件夹的绝对路径")
+### 2. 启动桥接服务器
 ```
-server.py 通过此文件获知操作哪个 chat_log.json。
-
-### 3. 启动输入监听（server.py 长轮询）
-
-**不再使用 Monitor / Cron**。改为 server.py 内置的 `/api/wait_pending` 长轮询端点（阻塞直到用户提交，最多 5 分钟超时）。
-
-启动完成后调用：
+python "{ROOT}/skills/start_server.py" "{ROOT}"
 ```
-ScheduleWakeup: delaySeconds=5, prompt="<<autonomous-loop-dynamic>>", reason="wakeup to check wait_pending"
+此脚本自动完成：检查服务器是否已在运行 → 若未运行则清理残留进程 → 后台启动 server.py + mvu_server.js → 轮询等待就绪（最多 15 秒）→ 打印确认。
+
+> `.card_path` 已在步骤 1 中写入，server.py 启动时可直接读取卡片文件夹路径。
+
+### 3. 读取启动上下文
+读取 `import_context.txt` 获取汇总信息，替代过去逐个读取 8+ 个文件的零散操作：
+```
+Read: {ROOT}/skills/styles/import_context.txt
 ```
 
-每次唤醒后执行：
-```
-curl -s --max-time 310 http://localhost:8765/api/wait_pending
-```
-- 若返回 `pending: true` → 按 CLAUDE.md「每轮处理」流程执行，处理完后再次 ScheduleWakeup(delaySeconds=5)
-- 若返回 `pending: false`（超时）→ 再次 ScheduleWakeup 继续等待
+`import_context.txt` 文件结构：
 
-### 4. 检测素材（一键导入）
-执行导入脚本完成全部素材解析：
-```
-python "{ROOT}/skills/import_card.py" "<卡片文件夹>" "{ROOT}"
-```
-该脚本自动完成：
-- 扫描文件夹：`.png` → PNG chunk 解析（tEXt/chara → base64 → JSON），`.json` → 直接读取，`.txt` → 小说文本
-- 卡片数据写入 `./.card_data.json`
-- 开场白生成 `{ROOT}/skills/styles/openings.json`（含 first_mes + alternate_greetings）
-- 世界书条目自动路由到 `memory/reference.md` 和 `memory/user.md`
-- 缺失的 memory 文件（project/feedback/story_plan）自动创建空模板
-- 打印 JSON 摘要到 stdout 供 Claude Code 消费
-
-### 4.5 加载/初始化记忆
-
-检查当前卡片文件夹下 `memory/` 目录：
-- **目录存在且有 `MEMORY.md`** → 读取索引和全部 `.md` 记忆文件（除 `reference.md` 外），将其内容作为叙事上下文的一部分
-- **目录不存在** → 创建 `memory/` 目录和以下初始文件（下详）
-
-**reference.md 不进入对话上下文**。该文件包含完整世界书条目正文（可能非常大），不参与前缀缓存。改为读取 `.worldbook_index.json` 进入上下文——这是所有世界书条目的轻量索引（keyword + 标题 + 一句话摘要 + 文件定位），供 AI 判断哪些话题有世界书覆盖，需要时按需 Grep 检索全文。
-
-**记忆文件格式**：每个 `.md` 文件使用 YAML frontmatter + Markdown 正文。
-
-**六种记忆类型**：
-
-| 文件 | 作用 | 更新频率 |
-|------|------|---------|
-| `memory/project.md` | 剧情进度、未落地的伏笔、各 NPC 当前状态、下阶段方向 | 每轮 |
-| `memory/reference.md` | 世界观规则、角色卡核心设定、关键地点、固定关系 | 几乎不变 |
-| `memory/feedback.md` | 用户偏好（文风/节奏/NSFW 边界）、踩过需要避开的坑 | 偶尔 |
-| `memory/user.md` | 用户角色当前状态（外貌/衣着/身体状态/携带物品/人际关系变化） | 低频 |
-| `memory/story_plan.md` | 长远剧情规划——布克模式/节拍定位/伏笔清单/下阶段方向 | 每 8 轮 |
-| `memory/.worldbook_index.json` | 所有世界书条目的关键词索引——标题 + 一句话摘要 + reference.md 定位 | 启动时加载 |
-| `memory/.card_structure.json` | 卡片叙事结构检测结果——角色/阶段/事件库的 section 映射 | 启动时加载 |
+| Section | 说明 |
+|---------|------|
+| `CARD_INFO` | 角色名、世界名、来源类型、合并的世界书数量 |
+| `MEMORY_FILES` | 记忆文件列表及描述（含 .worldbook_index.json / .card_structure.json） |
+| `WORLDBOOK_INDEX` | 全部世界书条目索引（关键词+摘要，限前 30 条） |
+| `CARD_STRUCTURE` | 阶段/事件/角色检测结果 |
+| `INITIAL_VARIABLES` | 初始变量路径树及当前值 |
+| `INJECTION_RULES` | 注入规则（如存在） |
+| `OPENINGS` | 开场白列表及预览，标注当前活跃开场 |
+| `SESSION_STATE` | 已初始化的文件清单 |
+| `NEXT_STEPS` | 后续操作指引 |
 
 **世界书检索规则**：
-- `.worldbook_index.json` 和 `.card_structure.json` 在上下文中常驻。
+- `.worldbook_index.json` 在上下文中常驻。
 - `round_context.txt` 的 `WORLD_MATCHES`（变量驱动）和 `INPUT_MATCHES`（用户输入关键词驱动）已自动检索了相关条目的**完整正文**——AI 优先使用这些已就绪的内容。
 - 当叙事涉及索引中已有、但未自动匹配的话题时，用 Grep 按需检索：`grep -n -A 200 "^## {条目标题}$" "{卡片文件夹}/memory/reference.md"`
 - 读取到的条目正文 **严格指导** 该话题的叙事描写。
 - 每轮额外 Grep 不超过 2-3 个条目。
 
-**初始内容 — 世界书条目自动提取规则**：
-
-从角色卡 PNG 的 `data.character_book.entries` 中提取**全部条目**，按 `comment` 字段路由到对应 memory 文件：
-
-| 路由规则 | 目标文件 | 说明 |
-|----------|----------|------|
-| `comment` 含 `{{user}}` | `user.md` | 用户角色完整设计 |
-| 其他所有条目 | `reference.md` | 世界观、NPC 设计、行为法则、叙述规则等 |
-
-**关键约束**：
-- **禁止摘要/压缩**：每条条目的 `content` 字段必须**原样完整写入**，一字不改。不得用"描述了XX的世界观"之类的一句话概括替代原文
-- **禁止跳过**：遍历全部条目，不存在的内容才写"无"。不得因"条目太多""内容太长"选择性忽略
-- **禁止偷懒**：不得因"文件已存在"跳过提取。启动时若发现 memory 文件已有内容但缺少 worldbook 中某些条目，必须**追加回填**缺失部分
-
-`project.md`：从角色卡/first_mes 提取初始场景、目标、NPC 列表
-`feedback.md`：初始为空，仅记录 `NSFW 档位: {当前档位}`
-`story_plan.md`：初始为空模板，`next_plan_at: 第8轮`，格式见下方剧情规划章节
-
-**MEMORY.md 索引格式**（列出所有记忆文件及各自的一句话摘要，方便快速定位）：
-
+### 4. 启动输入监听
 ```
-# 记忆索引
-
-- [project.md](memory/project.md) — Day 1 傍晚，主角在图书馆遇见绿毛
-- [reference.md](memory/reference.md) — 现代校园世界观，主角宿舍 302
-- [feedback.md](memory/feedback.md) — 用户偏好口语化对白
-- [user.md](memory/user.md) — 林逸风，22 岁大一新生
-- [story_plan.md](memory/story_plan.md) — 追寻模式，游戏时间节拍，下次规划第16轮
-- [.worldbook_index.json](memory/.worldbook_index.json) — 世界书条目索引（NNN 条），按需 Grep 检索全文
-- [.card_structure.json](memory/.card_structure.json) — 卡叙事结构（阶段人设/事件库映射），自动检测
+ScheduleWakeup: delaySeconds=5, prompt="<<autonomous-loop-dynamic>>", reason="wakeup to check wait_pending"
 ```
-
-### 5. 初始化状态文件
-根据提取到的素材，创建/覆盖以下文件：
-
-**`{ROOT}/skills/styles/state.js`**：填入初始 STATE
-```javascript
-window.STATE = {
-  world: "（世界名）",
-  stage: "开局",
-  time: "（起始时间）",
-  location: "（起始地点）",
-  env: "（环境描写）",
-  quest: "当前目标",
-  generatedCount: 0,
-  totalTokens: 0,
-  actions: [],
-  player: "", hp: 0, hpMax: 0, mp: 0, mpMax: 0, exp: 0, expMax: 0, ed: false,
-  npcs: []
-};
+每次唤醒后执行：
 ```
-
-**`{ROOT}/skills/styles/content.js`**：初始为空模板
-```javascript
-window.CONTENT_HTML = '<div style="padding:60px;text-align:center;color:#999;">正在生成开场...</div>';
-window.SUMMARY_TEXT = '';
+curl -s --max-time 310 http://localhost:8765/api/wait_pending
 ```
+- 若返回 `pending: true` → 按「每轮处理」流程执行，处理完后再次 ScheduleWakeup(delaySeconds=5)
+- 若返回 `pending: false`（超时）→ 再次 ScheduleWakeup 继续等待
 
-**`./chat_log.json`**（当前卡片文件夹）：若不存在则创建空数组 `[]`。
+### 5. （可选）调整 state.js
+`import_prepare.py` 已写入带 world name 的初始 `state.js`。如有需要，可根据 `import_context.txt` 补充 time/location/env/quest/npcs 等字段。
 
-### 6. 加载历史
-- 步骤 4.5 已加载 memory/ 下的记忆文件，结合 chat_log.json 重建完整叙事上下文
-- 检查 `./chat_log.json`：
-  - 文件存在且非空 → 读取全部轮次，与记忆一起纳入上下文
-  - 文件不存在或为空 → 记忆文件提供初始背景，全新开局
+### 6. 开局
 
-### 7. 告知用户
-简洁告知：
-- 「前端已就绪，打开 http://localhost:8765」
-- 「在输入框打字，点提交即可」
-- 然后直接生成开局，不要等用户确认
+`response.txt` 已由 import_prepare.py 预填（卡片 first_mes，含 `<content>` + `<summary>` + `<options>` 标签）。
 
-### 8. 开局
-
-`response.txt` 已由 import_card.py 预填（卡片 first_mes，含 `<content>` + `<summary>` + `<options>` 标签）。
-
-- **若 response.txt 存在且有内容** → 直接执行步骤 2（跳过 AI 生成）
+- **若 response.txt 存在且有内容** → 直接交付（跳过 AI 生成）
 - **若 response.txt 为空或不存在（卡片无 first_mes）** → 自行生成叙事开场，写入 response.txt
 
 **开局后执行：**
 
-1. （跳过 — response.txt 已就绪）
-2. 执行：`python "{ROOT}/skills/handler.py" "<卡片文件夹绝对路径>" --opening`
-3. handler.py 自动完成：chat_log.json 追加、content.js 重建、state.js 更新、/api/done 调用
-4. 主动向用户描述当前场景，邀请在浏览器中回复
+1. 执行：`python "{ROOT}/skills/handler.py" "<卡片文件夹绝对路径>" --opening`
+2. handler.py 自动完成：chat_log.json 追加、content.js 重建、state.js 更新、/api/done 调用
+3. 主动向用户描述当前场景，邀请在浏览器中回复
 
 ## 每轮处理
 
-ScheduleWakeup 自循环 + `/api/wait_pending` 长轮询驱动（server.py 内置），检测到 `pending: true` 时自动执行。备份 Cron 每 10 分钟兜底。
+ScheduleWakeup 自循环 + `/api/wait_pending` 长轮询驱动（server.py 内置），检测到 `pending: true` 时自动执行。
 
 **关键原则：信任对话历史**。Claude Code 保留了完整的对话历史，之前读取过的 chat_log.json 和 memory 文件内容无需重复读取——它们已在上下文中。只在对话被压缩导致记忆模糊时才回读文件。
 
@@ -335,7 +245,7 @@ total: NNNN
 
 - `<content>` 内的段落用 `<p>` 标签包裹
 - `<summary>` 为纯文本，不含 HTML
-- `<tokens>` 内为从 Claude Code session transcript 读取的 DeepSeek 真实 token 计数：`in` 输入 token，`out` 输出 token，`total` 合计。步骤 6.3 的 `post_quality_check.py` 在生成完成后自动从 transcript 采集并附加到 response.txt。
+- `<tokens>` 内为从 Claude Code session transcript 读取的 DeepSeek 真实 token 计数：`in` 输入 token，`out` 输出 token，`total` 合计。`round_deliver.py` 在生成完成后自动从 transcript 采集并附加到 response.txt。
 - `<options>` 内每行一个 `<font>` 标签
 - handler.py 自动完成：解析标签 → 追加 chat_log → 重建 content.js（自动剥离 options/summary 显示） → 更新 state.js → 调用 /api/done
 

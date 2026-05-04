@@ -72,54 +72,51 @@ def main():
     content_text = content_match.group(1) if content_match else response_text
     chinese_count = count_chinese(content_text)
 
-    # ── 2. Token Collection ──
-    tokens_found = False
-    token_data = {"in": 0, "out": 0, "total": 0}
-    # Try to read tokens from transcript (best-effort)
-    try:
-        # Look for the most recent assistant message with usage data in session transcript
-        home = os.environ.get("USERPROFILE", os.environ.get("HOME", ""))
-        if home:
-            sessions_dir = Path(home) / ".claude" / "projects"
-            if sessions_dir.exists():
-                # Find latest session dir
-                dirs = sorted(sessions_dir.glob("*-*"), key=os.path.getmtime, reverse=True)
-                for d in dirs[:3]:
-                    for jl in sorted(d.glob("*.jsonl"), key=os.path.getmtime, reverse=True):
-                        try:
-                            lines = jl.read_text(encoding="utf-8").strip().split("\n")
-                            for line in reversed(lines[-20:]):
-                                entry = json.loads(line)
-                                if entry.get("role") == "assistant" and "usage" in entry:
-                                    usage = entry["usage"]
-                                    token_data = {
-                                        "in": usage.get("input_tokens", 0),
-                                        "out": usage.get("output_tokens", 0),
-                                        "total": usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
-                                    }
-                                    tokens_found = True
-                                    break
-                            if tokens_found:
-                                break
-                        except Exception:
-                            continue
-                    if tokens_found:
-                        break
-    except Exception:
-        pass
+    # ── 2. Token Collection (checkpoint-based delta) ──
+    import token_stats
 
-    # Append tokens to response.txt
-    if tokens_found:
-        # Check if tokens block already exists
-        if "<tokens>" not in response_text:
-            with open(response_path, "a", encoding="utf-8") as f:
-                f.write(f"\n<tokens>\nin: {token_data['in']}\nout: {token_data['out']}\ntotal: {token_data['total']}\n</tokens>\n")
+    transcript_path = token_stats.locate_transcript()
+    cp = token_stats.load_checkpoint(card_folder) if transcript_path else {}
+    byte_offset = cp.get("last_byte_offset", 0)
+
+    # Compute startup cost on first round (previous_checkpoint signals new session)
+    startup_delta = None
+    if cp.get("previous_checkpoint"):
+        startup_delta = token_stats.compute_startup_cost(card_folder)
+        # Reload checkpoint — compute_startup_cost wrote startup_cost into it
+        cp = token_stats.load_checkpoint(card_folder)
+        byte_offset = cp.get("last_byte_offset", 0)
+
+    # Read all usage since last checkpoint
+    usage_entries = token_stats.read_usage_since(transcript_path, byte_offset) if transcript_path else []
+    delta = token_stats.compute_delta(usage_entries)
+    cumulative = cp.get("cumulative", {"input_tokens": 0, "output_tokens": 0})
+
+    # Retrieve startup cost from checkpoint (set by handler.py --opening or compute_startup_cost)
+    startup_cost = cp.get("startup_cost")
+    st_in = startup_cost.get("input_tokens", 0) if startup_cost else 0
+    st_out = startup_cost.get("output_tokens", 0) if startup_cost else 0
+
+    token_data = {
+        "in": delta["input_tokens"],
+        "out": delta["output_tokens"],
+        "total": delta["input_tokens"] + delta["output_tokens"],
+        "cache_read": delta["cache_read"],
+        "cache_hit_pct": delta["cache_hit_pct"],
+        "startup_in": st_in,
+        "startup_out": st_out,
+        "startup_total": st_in + st_out,
+        "cumulative_in": cumulative.get("input_tokens", 0) + delta["input_tokens"],
+        "cumulative_out": cumulative.get("output_tokens", 0) + delta["output_tokens"],
+        "cumulative_total": (cumulative.get("input_tokens", 0) + cumulative.get("output_tokens", 0) +
+                             delta["input_tokens"] + delta["output_tokens"]),
+    }
 
     # ── 3. Quality Gate ──
     ratio = chinese_count / word_count_target if word_count_target > 0 else 1.0
 
     if chinese_count < threshold:
-        # Word count failed — signal retry
+        # Word count failed — signal retry (do NOT save checkpoint)
         print(json.dumps({
             "action": "retry",
             "word_count": {"current": chinese_count, "target": word_count_target, "threshold": threshold, "ratio": round(ratio, 2)},
@@ -127,6 +124,13 @@ def main():
             "hint": f"当前 {chinese_count} 字，目标 {word_count_target} 字（最低 {threshold} 字）。请扩充感官细节、NPC 微反应、环境变化。禁止灌水重复。"
         }, ensure_ascii=False))
         sys.exit(0)
+
+    # Append token block to response.txt BEFORE handler reads it.
+    # Always append (even with delta=0) so cumulative/startup stats are visible.
+    if "<tokens>" not in response_text:
+        token_block = token_stats.format_token_block(delta, cumulative, startup_cost=startup_cost)
+        with open(response_path, "a", encoding="utf-8") as f:
+            f.write("\n" + token_block)
 
     # ── 4. Deliver to Frontend ──
     handler_ok = False
@@ -147,6 +151,9 @@ def main():
             "detail": handler_output[:500]
         }, ensure_ascii=False))
         sys.exit(1)
+
+    # Save checkpoint only after successful delivery
+    token_stats.save_checkpoint(card_folder, delta=delta, label="round")
 
     # ── 5. Memory Update ──
     memory_ok = False
